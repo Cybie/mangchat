@@ -1,3 +1,4 @@
+#summary Old MangChat Changelog.. (4955)
 ------------------------------ MangChat Changelog ------------------------------
 
 == MangChat(4955) ** Date: 01/01/2008 ==
