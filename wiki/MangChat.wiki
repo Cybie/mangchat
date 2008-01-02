@@ -8,12 +8,12 @@ IRC Client For Project MaNGOS
 = History =
 {{{
 The reason to write the first mangchat was a combined
-me wanting to learn the sockets library crossplatform
+me wanting to learn the sockets library cross platform
 and the idea of creating a irclient inside mangos to 
 be able to have simple chat between wow and irc and 
 connecting the channels of multiple mangos and irc 
 servers in one network having "cross-server chat" and
-also the posibility to execute simple gm commands.
+also the possibility to execute simple gm commands.
 
 I learned a little bit about the sockets library
 and some people where happy with this new functionality
