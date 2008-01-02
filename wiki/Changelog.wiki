@@ -1,0 +1,61 @@
+--------------------------------------------------------------------------------
+------------------------------ MangChat Changelog ------------------------------
+
+*** MangChat(4955) ** Date: 01/01/2008 ***
+** 1) Combined Sql Files Into One File (MangChat.sql)
+** 2) Added Shutdown Command
+** 3) Added Option To See InGame Announces/Notifies In IRC
+** 4) Fixed UnMute Problem With Player In Game During release
+** 5) Fixed player Command (Guild, Money, XP)
+** 6) Cleaned Up Some GCC Compile Warnings
+
+
+*** MangChat(4946) ** Date: 12/30/2007 ***
+** 1) Added A Few More Config Options
+** 2) Updated To Latest Mangos (4946)
+** 3) Lot More Options Coming Friday, From Now On I Will Release A New MangChat Every Friday Evening...
+
+*** MangChat(4782) ** Date: 11/29/2007 ***
+** 1) Added In A Help System, SQL Driven.. IRC_Commands.sql
+      Technically, Can Add In Own Help Requests With The SQL Table... 
+      Maybe like .Help realmlist at level 0 will display your realm info..
+** 2) Added Back In inchan Support, Supports Multiple Channels Now, SQL Driven.. IRC_Inchan.sql
+      Usage Is inchan <Channel>, ie. .inchan world, .inchan lookingforgroup
+** 3) Sorry To Make You Add More Tables, But This Is Better For Web Scripts And Such..
+** 4) Command Security Levels Are Now Controlled Through IRC_Commands.sql table..
+** 5) Added Support To Tele Player To Player In tele Command
+** 6) Removed Commands.txt And Commands From mangosd.conf.. All Info Is Available Through .help Command
+      Using .help With No Parameters Lists The Commands Available To You..
+
+*** MangChat(4773) ** Date: 11/26/2007 ***
+** 1) Cleaned Up Some Output Messages
+** 2) Worked On Jail Command (Locks, Teles, Disables Spells) Even Jailed On Login.. No Hearthstone..
+** 3) zbuff Command Is Now 100% Operational In Windows And Linux Servers
+** 4) Added Config Options To Control Whether GM Announce Is Gor GMLevel > 0, Or For GM ON Mode..
+
+*** MangChat(4769) ** Date: 11/25/2007 ***
+** 1) Changed 1/0 Params To Better Terms, See mute and jail In Commands.txt
+** 2) Fixed Mute Command (Can Mute Offline Players Now)
+** 3) Added GM Level To player Command
+** 4) Added Modified Version Of Tase's GM OnJoin Script, You Can Specify Where The Tag Is Placed
+      Please See Config File For More Information.. Alot Of New Settings For The Script..
+** 5) Added Money Command.. Command Can Be Done While Player Is Offline... You're Welcome.. ;)
+** 6) Added GMLevel To player Command.
+** 7) Changed additem To item For Future Support Of Item Deletion
+      item <Player> <add> <ItemID/[ItemName]> <Amount>
+** 8) Added Recall To Tele Command
+** 9) A Few Misc Things Like Messages To Players Being Tele'd, Given Money
+** 10) AGAIN ALOT OF NEW CONFIG OPTIONS PLEASE CHECK THE NEW CONFIG!!!!
+
+*** MangChat(4764) ** Date: 11/23/2007 ***
+** 1) Just A Few Small Updates
+** 2) Option To Control Invalid Command Errors Using BotMask
+** 3) Fixed Invalid Command Error To Send A Private Notice, Rather Then Display It In Channel
+** 4) Added Support For VC80 Project (Please Test This, And Give Feedback)
+
+*** MangChat(4760) ** Date: 11/23/2007 ***
+** 1) Added In More Config File Options
+** 2) Fixed Show IRC Joins/Parts In WoW
+** 3) When A Logged In IRC User Leaves Or Quits IRC, MangChat Logs Them Out Automatically
+** 4) Starting To Add The BotMask Options Back
+** 5) Bot Will Now Respon If Kicked, Message Can Be Set In Config
