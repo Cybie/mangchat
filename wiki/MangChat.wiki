@@ -5,4 +5,55 @@
 IRC Client For Project MaNGOS
 
 
-= Details =
+= History =
+{{{
+The reason to write the first mangchat was a combined
+me wanting to learn the sockets library crossplatform
+and the idea of creating a irclient inside mangos to 
+be able to have simple chat between wow and irc and 
+connecting the channels of multiple mangos and irc 
+servers in one network having "cross-server chat" and
+also the posibility to execute simple gm commands.
+
+I learned a little bit about the sockets library
+and some people where happy with this new functionality
+and someone pointed me out maybe others would like it 
+and there MangChat was born and released to the community
+
+Due to a lot of work in real life i was unfortunatly 
+a while unable to work on it, I gues it became pretty populair
+and luckly there where people that added a lot more options 
+to MangChat known as the Ehanced version.
+Lice <lice@yeuxverts.net>
+Dj_baby
+Sanaell
+Death420
+
+And they have done a great job in extending MangChat
+having almost full GM control, and the irc user system
+and many other great improvements, they where the one
+that kept MangChat alive.
+
+
+From the moment i had written this extension it was
+was done "as fast as possbile to make it work coding"
+hehe, anyways and i always wanted to make it better
+and easier to use this made me write MangChat 1.0.
+i started with a fresh mangos source
+
+
+A BIG thanks goes to Brunogcar who took the time todo
+the stuff i was too lazy for *evil grin* mainly using the
+search button finding me information  and stuff ;)
+Thanks my friend.
+
+with help and support from the MaNGOS project community.
+
+MangChat is free software:
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+
+In addition by using/modifying MangChat you agree to:
+RETAIN THE COPYRIGHT OF THE AUTHOR AND THE ENHANCERS.
+}}}
