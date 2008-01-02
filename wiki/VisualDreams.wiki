@@ -1,0 +1,10 @@
+#summary One-sentence summary of this page.
+
+= VisualDreams =
+
+The VisualDreams Group is divided in several divisions wich incorporate hard and software, multimedia, networking and various other aspects of technology.
+
+
+= Contact info: =
+
+  * cybraxvd@gmail.com
