@@ -1,7 +1,6 @@
 #summary Old MangChat Changelog.. (4955)
------------------------------- MangChat Changelog ------------------------------
 
-== Anything Newer Then MangChat 4955 Will Be Available Here http://cia.vc/stats/project/MangChat ==
+== _Anything Newer Then MangChat 4955 Will Be Available Here http://cia.vc/stats/project/MangChat_ ==
 
 == MangChat(4955) ** Date: 01/01/2008 ==
 1) Combined Sql Files Into One File (MangChat.sql)
