@@ -1,15 +1,15 @@
 #include "IRCCmd.h"
 #include "IRCClient.h"
 #include "WorldPacket.h"
-#include "Chat.h"
-#include "MapManager.h"
+#include "../Chat.h"
+#include "../MapManager.h"
 #include "Database/DatabaseEnv.h"
-#include "World.h"
-#include "Guild.h"
-#include "ObjectMgr.h"
-#include "Language.h"
-#include "SpellAuras.h"
-#include "Config/ConfigEnv.h"
+#include "../World.h"
+#include "../Guild.h"
+#include "../ObjectMgr.h"
+#include "../Language.h"
+#include "../SpellAuras.h"
+#include "../Config/ConfigEnv.h"
 
 #define Send_Player(p, m)	        sIRC.Send_WoW_Player(p, m)
 #define Send_IRC(c, m, b)		sIRC.Send_IRC_Channel(c, m, b)
@@ -611,8 +611,18 @@ void IRCCmd::Mute_Player(_CDATA *CD)
 	else
 	Send_IRCA(CD->USER, " 4[ERROR] : Player Does Not Exist!", true, MSG_NOTICE);
 }
+
+#include "MCS_OnlinePlayers.h"
+
 void IRCCmd::Online_Players(_CDATA *CD)
 {
+	if(!sIRC.Script_Lock[MCS_Players_Online])
+	{
+		sIRC.Script_Lock[MCS_Players_Online] = true;
+		ZThread::Thread script(new mcs_OnlinePlayers(CD));
+	}
+
+	/*
 	int OnlineCount = 0;
 	std::string IRCOut = "";
 	HashMapHolder<Player>::MapType& m = ObjectAccessor::Instance().GetPlayers();
@@ -649,6 +659,7 @@ void IRCCmd::Online_Players(_CDATA *CD)
     }
 	// Remainder in IRCOUT && Total plyersonline
 	Send_IRC(ChanOrPM(CD), MakeMsg(" %s Players Online(%d)", IRCOut.c_str(), OnlineCount), true);
+	*/
 }
 void IRCCmd::Player_Info(_CDATA *CD)
 {

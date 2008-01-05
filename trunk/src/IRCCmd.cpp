@@ -500,6 +500,7 @@ std::string* IRCCmd::getArray(std::string PARAMS, int nCount)
 	}
 	return array;
 }
+
 std::string IRCCmd::MakeMsg(const char *sLine, ... )
 {
     va_list ap;

@@ -2,8 +2,8 @@
 #define _IRC_CMD_H
 #define MAX_CLIENTS 50
 #include "Common.h"
-#include "Player.h"
-#include "ObjectAccessor.h"
+#include "../Player.h"
+#include "../ObjectAccessor.h"
 struct _client
 {
 	bool		LoggedIn;
@@ -44,6 +44,11 @@ public:
 	bool	IsValid(std::string USER, std::string FROM, std::string CHAT);
 	void	Handle_Logout(_CDATA *CD);
 	bool	IsLoggedIn(std::string USER);
+
+public:
+	static std::string MakeMsg(const char *sLine, ... );
+	static std::string ChanOrPM(_CDATA *CD);
+
 private:
 	void	Handle_Login(_CDATA *CD);
 	void	Online_Players(_CDATA *CD);
@@ -76,9 +81,7 @@ private:
 	int     ParamsValid(_CDATA *CD, int pCnt, int rLev);
 	Player* GetPlayer(std::string WHO);
     std::string GetAccName(std::string sName);
-    std::string ChanOrPM(_CDATA *CD);
 	std::string* getArray(std::string PARAMS, int nCount = 1);
-	std::string MakeMsg(const char *sLine, ... );
 	_client CLIENTS[MAX_CLIENTS];
 };
 #endif

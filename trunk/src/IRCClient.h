@@ -2,7 +2,7 @@
 #define _IRC_CLIENT_H
 
 #include "Policies/Singleton.h"
-#include "Player.h"
+#include "../Player.h"
 
 using namespace std;
 // The maximum ammount of channels used
@@ -42,6 +42,14 @@ enum CIMSG
 	MSG_NOTICE = 1,
 	MSG_ACTION = 2,
 };
+
+enum script_Names
+{
+	MCS_Players_Online	= 0,
+	MCS_PlaceHolder_1	= 1,
+	MCS_PlaceHolder_2	= 2,
+};
+
 // IRCClient main class
 class IRCClient : public ZThread::Runnable
 {
@@ -85,6 +93,10 @@ public:
 	// This function is called in Channel.cpp and processes Join/leave messages
 	void	Handle_WoW_Channel(std::string Channel, Player *plr, int nAction);
 	void ResetIRC();
+
+public:
+	static bool Script_Lock[5];
+
 public:
 	// IRC Server host
 	string	_Host;
