@@ -1,10 +1,10 @@
 #include "IRCClient.h"
 #include "IRCCmd.h"
 #include "IRCFunc.h"
-#include "ObjectAccessor.h"
-#include "WorldPacket.h"
-#include "ChannelMgr.h"
-#include "Config/ConfigEnv.h"
+#include "../ObjectAccessor.h"
+#include "../WorldPacket.h"
+#include "../ChannelMgr.h"
+#include "../Config/ConfigEnv.h"
 
 IRCCmd Command;
 void IRCClient::Handle_IRC(std::string sData)

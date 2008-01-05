@@ -14,9 +14,9 @@
  */
 #include "IRCClient.h"
 #include "Log.h"
-#include "World.h"
-#include "ObjectMgr.h"
-#include "MapManager.h"
+#include "../World.h"
+#include "../ObjectMgr.h"
+#include "../MapManager.h"
 
 #include "Policies/SingletonImp.h"
 INSTANTIATE_SINGLETON_1( IRCClient );
@@ -26,7 +26,12 @@ INSTANTIATE_SINGLETON_1( IRCClient );
  #define Delay(x) sleep(x / 1000)
 #endif
 // IRCClient Constructor
-IRCClient::IRCClient(){}
+IRCClient::IRCClient()
+{
+	for(int i = 0;i > 5;i++)
+		Script_Lock[i] = false;
+
+}
 // IRCClient Destructor
 IRCClient::~IRCClient(){}
 // ZThread Entry
@@ -83,7 +88,8 @@ void IRCClient::run()
 				sIRC.Active = false;
 			// If we need to reattempt a connection wait WAIT_CONNECT_TIME milli seconds before we try again
 			if(sIRC.Active)
-				Delay(WAIT_CONNECT_TIME);
+				ZThread::Thread::sleep(WAIT_CONNECT_TIME);
+				//Delay(WAIT_CONNECT_TIME);
 		}
 		else
 		{
