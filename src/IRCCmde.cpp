@@ -620,26 +620,35 @@ void IRCCmd::Online_Players(_CDATA *CD)
     {
         if (itr->second && itr->second->GetSession()->GetPlayer() && itr->second->GetSession()->GetPlayer()->IsInWorld())
 		{
-		OnlineCount++;
-		Player *plr = itr->second->GetSession()->GetPlayer();
-		std::string ChatTag = " ";
-		if(plr->isAFK())
-			ChatTag.append("7<AFK>");
-		if(plr->isDND())
-			ChatTag.append("7<DND>");
-		if(itr->second->GetSession()->GetSecurity() > sConfig.GetIntDefault("OnlineGM", 2))
-			ChatTag.append("9<GM>");
-		if(itr->second->GetSession()->GetSecurity() > 0)
-			ChatTag.append("");
-                switch (plr->GetTeam())
-                {
-                   case 67:ChatTag.append("4");break; //horde
-                   case 469:ChatTag.append("12");break; //alliance
-                }
-		IRCOut.append(MakeMsg("%s%s(%d)", ChatTag.c_str(), plr->GetName(), plr->getLevel()));
+			OnlineCount++;
+			Player *plr = itr->second->GetSession()->GetPlayer();
+			std::string ChatTag = " ";
+			
+			if(plr->isAFK())
+				ChatTag.append("7<AFK>");
+			if(plr->isDND())
+				ChatTag.append("7<DND>");
+			if(itr->second->GetSession()->GetSecurity() > sConfig.GetIntDefault("OnlineGM", 2))
+				ChatTag.append("9<GM>");
+			if(itr->second->GetSession()->GetSecurity() > 0)
+				ChatTag.append("");
+            
+			switch (plr->GetTeam())
+            {
+				case 67:ChatTag.append("4");break; //horde
+                case 469:ChatTag.append("12");break; //alliance
+            }
+			IRCOut.append(MakeMsg("%s%s(%d)", ChatTag.c_str(), plr->GetName(), plr->getLevel()));
+
+			if(OnlineCount % 10 == 0)
+			{
+				Send_IRC(ChanOrPM(CD), MakeMsg(" %s", IRCOut.c_str()), true);
+				IRCOut = "";
+			}
         }
     }
-	Send_IRC(ChanOrPM(CD), MakeMsg("Players Online(%d): %s", OnlineCount, IRCOut.c_str()), true);
+	// Remainder in IRCOUT && Total plyersonline
+	Send_IRC(ChanOrPM(CD), MakeMsg(" %s Players Online(%d)", IRCOut.c_str(), OnlineCount), true);
 }
 void IRCCmd::Player_Info(_CDATA *CD)
 {
