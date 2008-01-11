@@ -5,6 +5,7 @@
 #include "../WorldPacket.h"
 #include "../ChannelMgr.h"
 #include "../Config/ConfigEnv.h"
+#include "../Channel.h"
 
 IRCCmd Command;
 void IRCClient::Handle_IRC(std::string sData)
@@ -355,4 +356,48 @@ void IRCClient::ResetIRC()
 {
 	SendData("QUIT");
 	Disconnect();
+}
+
+#define CHAT_INVITE_NOTICE 0x18
+
+void AutoJoinChannel(Player *plr)
+{
+	std::string m_name = "world";
+
+	WorldPacket data;
+	data.Initialize(SMSG_CHANNEL_NOTIFY, 1+m_name.size()+1);
+	data << uint8(CHAT_INVITE_NOTICE);
+	data << m_name.c_str();
+	data << uint64(0);
+	plr->GetSession()->SendPacket(&data);
+
+         //send invitation
+
+	/*
+	uint32 accountID = 1;  //the account id of the bot
+    uint64 guid = 2;  //the guid of the bot
+
+    WorldSession session(accountID, NULL, 0, true, 0, LOCALE_ENG);
+    Player bot(&session);                                      //create the bot
+
+    if(bot.MinimalLoadFromDB(NULL, guid))                      //did the bot load properly ?
+    {
+        ObjectAccessor::Instance().AddObject(&bot);           //add bot to the world
+
+        if(ChannelMgr* bot_cMgr = channelMgr(HORDE))          //can we get the channel manager ?
+            if(Channel* bot_chn = bot_cMgr->GetChannel("world", &bot))//can we get the channel ?
+                bot_chn->Join(guid,"");                          //add bot to channel
+        
+        
+		if(ChannelMgr* cMgr = channelMgr(this->GetTeam()))      //can we get the channel manager ?
+            if(Channel *chn = cMgr->GetChannel("world", this))//can we get the channel ?
+                chn->Invite(guid, GetName());              //send invitation
+
+        ObjectAccessor::Instance().RemoveObject(&bot);        //remove from world
+        m_invite = 30000;
+    }
+    else
+        sLog.outError("Bot not loaded properly from db");
+	*/
+
 }
