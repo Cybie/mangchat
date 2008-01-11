@@ -95,6 +95,9 @@ public:
 	void ResetIRC();
 
 public:
+	void AutoJoinChannel(Player *plr);
+
+public:
 	bool Script_Lock[5];
 
 public:
@@ -192,6 +195,7 @@ public:
 
 	int _Max_Script_Inst;
 	// MAX_SCRIPT_INST
+
 private:
 	// Load configuration from the mangosd.conf file
 	// to be used with the irc client.
