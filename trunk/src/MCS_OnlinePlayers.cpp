@@ -9,7 +9,11 @@ mcs_OnlinePlayers::mcs_OnlinePlayers() { CD = NULL; }
 mcs_OnlinePlayers::mcs_OnlinePlayers(_CDATA *_CD)
 {
 	CD = new _CDATA();
-	CD = _CD;
+	CD->CMD = _CD->CMD;
+	CD->FROM = _CD->FROM;
+	CD->PARAMS = _CD->PARAMS;
+	CD->PCOUNT = _CD->PCOUNT;
+	CD->USER = _CD->USER;
 	
 }
 
@@ -21,6 +25,7 @@ mcs_OnlinePlayers::~mcs_OnlinePlayers()
 
 void mcs_OnlinePlayers::run()
 {
+
 	int OnlineCount = 0;
 	std::string IRCOut = "";
 	HashMapHolder<Player>::MapType& m = ObjectAccessor::Instance().GetPlayers();

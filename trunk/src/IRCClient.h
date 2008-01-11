@@ -129,9 +129,10 @@ public:
 	// Array to store our IRC channels
 	// each element will corrospond
 	// with _wow_chan array below.
-	string	_irc_chan[MAX_CONF_CHANNELS];
+	std::string	_irc_chan[MAX_CONF_CHANNELS];
 	// Game Channel list
-	string	_wow_chan[MAX_CONF_CHANNELS];
+	std::string	_wow_chan[MAX_CONF_CHANNELS];
+
         // Channel OnJoin/Restart/Kick Messages
         string  JoinMsg;
         string  RstMsg;
