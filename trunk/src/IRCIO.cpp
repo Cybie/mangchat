@@ -363,15 +363,50 @@ void IRCClient::ResetIRC()
 void AutoJoinChannel(Player *plr)
 {
 	std::string m_name = "world";
-
 	WorldPacket data;
 	data.Initialize(SMSG_CHANNEL_NOTIFY, 1+m_name.size()+1);
 	data << uint8(CHAT_INVITE_NOTICE);
 	data << m_name.c_str();
+	// send guid 0 (experimental)
 	data << uint64(0);
+	// have a random guid invite the player
+	// if the above fails
+	/*
+	for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
+    {
+        if (itr->second && itr->second->GetSession()->GetPlayer() && itr->second->GetSession()->GetPlayer()->IsInWorld())
+        {
+			data << uint64(itr->second->GetGUID());
+			break;
+        }
+    }
+	*/
+	// if even that fails
+	// check for a player on the channel already
+	/*
+	for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
+    {
+        if (itr->second && itr->second->GetSession()->GetPlayer() && itr->second->GetSession()->GetPlayer()->IsInWorld())
+        {
+            if(ChannelMgr* cMgr = channelMgr(itr->second->GetSession()->GetPlayer()->GetTeam()))
+            {
+                if(Channel *chn = cMgr->GetChannel(m_name, itr->second->GetSession()->GetPlayer()))
+                {
+					data << uint64(itr->second->GetGUID());
+					break;
+				}
+			}
+		}
+    }
+	*/
+	// for all these events the channel needs to exist
+	// thus a player already has tobe on it
+	// in future upgrade mangchat should create the channel on startup
+	// and have a permanent "bot" invite the players and "control" the channel
 	plr->GetSession()->SendPacket(&data);
 
-         //send invitation
+
+    //send invitation
 
 	/*
 	uint32 accountID = 1;  //the account id of the bot
