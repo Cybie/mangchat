@@ -4,6 +4,15 @@
 #include "Common.h"
 #include "../Player.h"
 #include "../ObjectAccessor.h"
+
+struct ChannelUser
+{
+	int UserType;
+	std::string Name;
+	std::string UName;
+	int UserLevel;
+};
+
 struct _client
 {
 	bool		LoggedIn;
@@ -82,6 +91,8 @@ private:
 	Player* GetPlayer(std::string WHO);
     std::string GetAccName(std::string sName);
 	std::string* getArray(std::string PARAMS, int nCount = 1);
-	_client CLIENTS[MAX_CLIENTS];
+	//_client CLIENTS[MAX_CLIENTS];
+
+	std::list<_client*> _CLIENTS;
 };
 #endif

@@ -426,6 +426,14 @@ Player *IRCCmd::GetPlayer(std::string WHO)
 }
 bool IRCCmd::IsLoggedIn(std::string USER)
 {
+    for(std::list<_client*>::iterator i=_CLIENTS.begin(); i!=_CLIENTS.end();i++)
+    {
+		if((*i)->Name == USER)
+			return true;
+    }
+	return false;
+
+	/*
 	for(int i = 0;i < MAX_CLIENTS;i++)
 	{
 		if((CLIENTS[i].LoggedIn) && (CLIENTS[i].Name == USER))
@@ -433,10 +441,16 @@ bool IRCCmd::IsLoggedIn(std::string USER)
 			return true;
 		}
 	}
-	return false;
+	*/
 }
 int IRCCmd::GetLevel(std::string sName)
 {
+    for(std::list<_client*>::iterator i=_CLIENTS.begin(); i!=_CLIENTS.end();i++)
+    {
+		if((*i)->Name == sName)
+			return (*i)->GMLevel;
+    }
+	/*
 	for(int i = 0;i < MAX_CLIENTS;i++)
 	{
 		if(CLIENTS[i].Name == sName)
@@ -444,10 +458,17 @@ int IRCCmd::GetLevel(std::string sName)
 			return CLIENTS[i].GMLevel;
 		}
 	}
+	*/
 	return 0;
 }
 std::string IRCCmd::GetAccName(std::string sName)
 {
+    for(std::list<_client*>::iterator i=_CLIENTS.begin(); i!=_CLIENTS.end();i++)
+    {
+		if((*i)->Name == sName)
+			return (*i)->UName;
+    }
+	/*
 	for(int i = 0;i < MAX_CLIENTS;i++)
 	{
 		if(CLIENTS[i].Name == sName)
@@ -455,6 +476,7 @@ std::string IRCCmd::GetAccName(std::string sName)
 			return CLIENTS[i].UName;
 		}
 	}
+	*/
 	return "";
 }
 bool IRCCmd::ValidParams(std::string PARAMS, int nCount)

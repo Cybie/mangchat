@@ -24,6 +24,33 @@ void IRCCmd::Handle_Login(_CDATA *CD)
 	std::string* _PARAMS = getArray(CD->PARAMS, 2);
 	if(!IsLoggedIn(CD->USER))
 	{
+		
+		QueryResult *result = loginDatabase.PQuery("SELECT `gmlevel` FROM `account` WHERE `username`='%s' AND `I`=SHA1(CONCAT(UPPER(`username`),':',UPPER('%s')));", _PARAMS[0].c_str(), _PARAMS[1].c_str());
+		if (result)
+		{
+			Field *fields = result->Fetch();
+			int GMLevel = fields[0].GetInt16();
+			if(GMLevel >= 0)
+			{
+
+				_client *NewClient = new _client();
+
+				NewClient->Name     = CD->USER;
+				NewClient->UName    = _PARAMS[0];
+				NewClient->GMLevel  = fields[0].GetInt16();
+
+				_CLIENTS.push_back(NewClient);
+
+				Send_IRC(ChanOrPM(CD), MakeMsg("You Are Now Logged In As %s, Welcome To MangChat Admin Mode.", _PARAMS[0].c_str()), true);
+			}
+		}
+	}
+	else
+		Send_IRC(CD->USER, " 4[ERROR] : You Are Already Logged In As "+ _PARAMS[0] +"!", true);
+
+	/*
+	if(!IsLoggedIn(CD->USER))
+	{
 		QueryResult *result = loginDatabase.PQuery("SELECT `gmlevel` FROM `account` WHERE `username`='%s' AND `I`=SHA1(CONCAT(UPPER(`username`),':',UPPER('%s')));", _PARAMS[0].c_str(), _PARAMS[1].c_str());
 		if (result)
 		{
@@ -53,9 +80,22 @@ void IRCCmd::Handle_Login(_CDATA *CD)
 	}
 	else
 	Send_IRC(CD->USER, " 4[ERROR] : You Are Already Logged In As "+ _PARAMS[0] +"!", true);
+	*/
 }
 void IRCCmd::Handle_Logout(_CDATA *CD)
 {
+    for(std::list<_client*>::iterator i=_CLIENTS.begin(); i!=_CLIENTS.end();i++)
+    {
+		if((*i)->Name == CD->USER)
+		{
+			_CLIENTS.remove(*i);
+			Send_IRC(CD->USER, "You Are Now Logged Out!", true);
+			return;
+		}
+    }
+	Send_IRC(CD->USER, " 4[ERROR] : You Are Not Logged In!", true);
+
+	/*
 	if(IsLoggedIn(CD->USER))
 	{
 		for(int i = 0;i < MAX_CLIENTS;i++)
@@ -74,6 +114,7 @@ void IRCCmd::Handle_Logout(_CDATA *CD)
 	{
 		Send_IRC(CD->USER, " 4[ERROR] : You Are Not Logged In!", true);
 	}
+	*/
 }
 void IRCCmd::Fun_Player(_CDATA *CD)
 {
@@ -970,6 +1011,14 @@ void IRCCmd::Tele_Player(_CDATA *CD)
 void IRCCmd::Who_Logged(_CDATA *CD)
 {
 	std::string OPS = "";
+
+    for(std::list<_client*>::iterator i=_CLIENTS.begin(); i!=_CLIENTS.end();i++)
+    {
+		OPS.append(MakeMsg(" [GM:%d IRC: %s - WoW: %s] ", (*i)->GMLevel, (*i)->Name.c_str(), (*i)->UName.c_str()));
+	}
+
+	
+	/*
 	for(int i = 0;i < MAX_CLIENTS;i++)
 	{
 		if(CLIENTS[i].LoggedIn)
@@ -977,6 +1026,7 @@ void IRCCmd::Who_Logged(_CDATA *CD)
 			OPS.append(MakeMsg(" [GM:%d IRC: %s - WoW: %s] ", CLIENTS[i].GMLevel, CLIENTS[i].Name.c_str() ,CLIENTS[i].UName.c_str()));
 		}
 	}
+	*/
 	Send_IRC(ChanOrPM(CD), OPS, true);
 }
 
