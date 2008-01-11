@@ -95,7 +95,7 @@ public:
 	void ResetIRC();
 
 public:
-	static bool Script_Lock[5];
+	bool Script_Lock[5];
 
 public:
 	// IRC Server host
