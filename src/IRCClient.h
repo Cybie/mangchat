@@ -211,5 +211,6 @@ private:
 	// Receieves data from the socket.
 	void	SockRecv();
 };
-#define sIRC MaNGOS::Singleton<IRCClient>::Instance()
 #endif
+
+#define sIRC MaNGOS::Singleton<IRCClient>::Instance()
