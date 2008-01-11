@@ -88,7 +88,9 @@ void IRCCmd::Handle_Logout(_CDATA *CD)
     {
 		if((*i)->Name == CD->USER)
 		{
-			_CLIENTS.remove(*i);
+			_CLIENTS.erase(i);
+			//_CLIENTS.remove(*i);
+			delete (*i);
 			Send_IRC(CD->USER, "You Are Now Logged Out!", true);
 			return;
 		}
