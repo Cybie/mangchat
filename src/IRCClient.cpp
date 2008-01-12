@@ -1,14 +1,10 @@
 /*
  * MangChat v1.0 By Cybrax (VisualDreams)
  *
- * This Software Is Currently Still Under Development. (Tested In WindowsXP/Debian Linux)
- *
  * This Program Is Free Software; You Can Redistribute It And/Or Modify
  * It Under The Terms Of The GNU General Public License
- * --- MangChat Copyright (C) 2007 VisualDreams <http://dev.visualdreams.nl> ---
- * ---- Written and Developed by Cybrax. cybrax_vd@hotmail.com
- * ----- MangChat v0.1 was enhanced by Lice <lice@yeuxverts.net>, Dj_baby & Sanaell
- * ------ MangChat 1.0 was further developed by |Death| <death@hell360.net>
+ * Written and Developed by Cybrax. cybrax_vd@hotmail.com
+ * |Death| <death@hell360.net>, Lice <lice@yeuxverts.net>, Dj_baby & Sanaell, Tase
  * With Help And Support From The MaNGOS Project Community.
  * PLEASE RETAIN THE COPYRIGHT OF THE AUTHORS.
  */

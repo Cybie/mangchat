@@ -106,11 +106,7 @@ void IRCClient::SockRecv()
 {
     char szBuffer[MAXDATASIZE];
 
-    #ifdef _WIN32
-    ZeroMemory(szBuffer,MAXDATASIZE);
-    #else
-    memset(szBuffer, 0, MAXDATASIZE + 1 );
-    #endif
+    memset(szBuffer, 0, MAXDATASIZE );
     int nBytesRecv = ::recv(sIRC.SOCKET, szBuffer, MAXDATASIZE - 1, 0 );
     if ( nBytesRecv == -1 )
     {

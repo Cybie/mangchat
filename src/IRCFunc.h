@@ -1,3 +1,6 @@
+#ifndef _IRC_CLIENT_FUNC
+#define _IRC_CLIENT_FUNC
+
 std::string GetUser(std::string szU)
 {
     int pos = szU.find("!");
@@ -243,3 +246,5 @@ std::string* getArray(std::string PARAMS, int nCount, std::string )
     }
     return array;
 }
+
+#endif
