@@ -3,6 +3,7 @@
 
 #include "Policies/Singleton.h"
 #include "../Player.h"
+#include "MCGame.h"
 
 using namespace std;
 // The maximum ammount of channels used
@@ -195,6 +196,9 @@ class IRCClient : public ZThread::Runnable
 
         int _Max_Script_Inst;
         // MAX_SCRIPT_INST
+
+public:
+    std::list<gPlayer*> GamePlayers;
 
     private:
         // Load configuration from the mangosd.conf file

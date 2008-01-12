@@ -22,6 +22,15 @@
 void IRCCmd::Handle_Login(_CDATA *CD)
 {
     std::string* _PARAMS = getArray(CD->PARAMS, 2);
+
+    /*
+    if(_client *cl = GetClient(CD->USER))
+    {
+        cl->Name;
+        cl->GMLevel;
+    }
+    */
+    
     if(!IsLoggedIn(CD->USER))
     {
 
