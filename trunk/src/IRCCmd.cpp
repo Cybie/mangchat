@@ -411,8 +411,13 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
                     break;
             }
             */
-            MC_Game *NewGame = new MC_Game();
-            ZThread::Thread game(NewGame);
+
+            //if(!sIRC.Script_Lock[MCS_Poker_Game])
+            //{
+                sIRC.Script_Lock[MCS_Poker_Game] = true;
+                MC_Game *NewGame = new MC_Game();
+                ZThread::Thread game(NewGame);
+            //}
             cValid = true;
         }
 

@@ -47,7 +47,7 @@ enum CIMSG
 enum script_Names
 {
     MCS_Players_Online  = 0,
-    MCS_PlaceHolder_1   = 1,
+    MCS_Poker_Game      = 1,
     MCS_PlaceHolder_2   = 2,
 };
 
