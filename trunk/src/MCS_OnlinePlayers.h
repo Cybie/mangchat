@@ -1,15 +1,21 @@
 #include "IRCClient.h"
 #include "IRCCmd.h"
 
+// the reason to run this command multithreaded
+// is to be able to "spread" the output over irc
+// for servers with high player count
+// in order not to freeze the mangchat core with sleep
+// a new thread is spawned it will output the player data
+// evry "10 players" and pauzes to not spam irc
+// in addition the command is locked so i cannot be used
+// while active.
+
 class mcs_OnlinePlayers : public ZThread::Runnable
 {
     public:
-        // IRCClient Constructor
         mcs_OnlinePlayers();
         mcs_OnlinePlayers(_CDATA *_CD);
-        // IRCClient Destructor
         ~mcs_OnlinePlayers();
-        // ZThread Entry
         void run();
     public:
         _CDATA *CD;

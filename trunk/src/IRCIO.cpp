@@ -16,6 +16,7 @@ void IRCClient::Handle_IRC(std::string sData)
     if(sData.substr(0, 5) == "ERROR")
     {
         Disconnect();
+        return;
     }
     if(sData.substr(0, 4) == "PING")
     {
@@ -369,6 +370,7 @@ void IRCClient::ResetIRC()
 
 #define CHAT_INVITE_NOTICE 0x18
 
+// this function should be called on player login
 void AutoJoinChannel(Player *plr)
 {
     std::string m_name = "world";
@@ -415,7 +417,7 @@ void AutoJoinChannel(Player *plr)
     plr->GetSession()->SendPacket(&data);
 
     //send invitation
-
+    // the code below was written by tase
     /*
     uint32 accountID = 1;  //the account id of the bot
     uint64 guid = 2;  //the guid of the bot

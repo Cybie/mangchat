@@ -8,6 +8,7 @@ mcs_OnlinePlayers::mcs_OnlinePlayers() { CD = NULL; }
 
 mcs_OnlinePlayers::mcs_OnlinePlayers(_CDATA *_CD)
 {
+    //create a new instance of data struct and copy its data
     CD = new _CDATA();
     CD->CMD = _CD->CMD;
     CD->FROM = _CD->FROM;
@@ -45,9 +46,8 @@ void mcs_OnlinePlayers::run()
             else if(plr->isDND())
                 ChatTag.append("\002\0037<DND>\003\002");
 
-            // why is this here..??
-            //if(itr->second->GetSession()->GetSecurity() > 0)
-            //	ChatTag.append("");
+            if(itr->second->GetSession()->GetSecurity() > 0)
+            	ChatTag.append("");
 
             switch (plr->GetTeam())
             {
@@ -57,6 +57,8 @@ void mcs_OnlinePlayers::run()
 
             IRCOut.append(IRCCmd::MakeMsg("%s\002%s\003\017\002(%d)\002\017", ChatTag.c_str(), plr->GetName(), plr->getLevel()));
 
+            // after 10 players have been added to the string 
+            // output to irc and reset for the next 10
             if(OnlineCount % 10 == 0)
             {
                 sIRC.Send_IRC_Channel(IRCCmd::ChanOrPM(CD), IRCCmd::MakeMsg("\002 %s", IRCOut.c_str()), true);
