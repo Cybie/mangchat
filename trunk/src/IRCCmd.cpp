@@ -27,6 +27,8 @@ int IRCCmd::ParamsValid(_CDATA *CD, int pCnt, int rLev)
     return E_OK;
 }
 
+
+
 // This function checks if chat from irc is a command or not
 // return true on yes and false on no
 bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
@@ -393,6 +395,49 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             }
             cValid = true;
         }
+        else if(CDATA.CMD == "startgame")
+        {
+            /*
+            switch(ParamsValid(&CDATA, 1, sIRC.CZBUFF))
+            {
+                case E_OK:
+                    Zbuff_Player(&CDATA);
+                    break;
+                case E_SIZE:
+                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"zbuff <Player> )", true, MSG_NOTICE);
+                    break;
+                case E_AUTH:
+                    AuthValid = false;
+                    break;
+            }
+            */
+            MC_Game *NewGame = new MC_Game();
+            ZThread::Thread game(NewGame);
+            cValid = true;
+        }
+
+        else if(CDATA.CMD == "joingame")
+        {
+
+            for(std::list<gPlayer*>::iterator i=sIRC.GamePlayers.begin(); i!=sIRC.GamePlayers.end();i++)
+                if((*i)->name == CDATA.USER)
+                    break;
+
+
+            std::string* _PARAMS = getArray(CDATA.PARAMS, 3);
+
+            
+            gPlayer *NewPlayer = new gPlayer();
+
+            NewPlayer->name = CDATA.USER;
+            NewPlayer->cBank = 1000;
+            NewPlayer->cCash = 1000;
+            NewPlayer->cBet = 1000;
+
+            sIRC.GamePlayers.push_back(NewPlayer);
+        
+        }
+
         if(!AuthValid && IsLoggedIn(USER))
             sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Access Denied! Your Security Level Is Too Low To Use This Command!", true, MSG_NOTICE);
         if(cValid == false && (sIRC.BOTMASK & 4) != 0)
@@ -428,6 +473,17 @@ Player *IRCCmd::GetPlayer(std::string WHO)
 {
     normalizePlayerName(WHO);
     return ObjectAccessor::Instance().FindPlayerByName(WHO.c_str());
+}
+
+
+_client *IRCCmd::GetClient(std::string cname)
+{
+    for(std::list<_client*>::iterator i=_CLIENTS.begin(); i!=_CLIENTS.end();i++)
+    {
+        if((*i)->Name == cname)
+            return (*i);
+    }
+    return (NULL);
 }
 
 bool IRCCmd::IsLoggedIn(std::string USER)

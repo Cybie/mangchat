@@ -104,6 +104,8 @@ void IRCClient::Disconnect()
 
 void IRCClient::SockRecv()
 {
+//    wchar_t bufferdata;
+
     char szBuffer[MAXDATASIZE];
 
     memset(szBuffer, 0, MAXDATASIZE );

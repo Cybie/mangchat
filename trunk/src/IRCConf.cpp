@@ -12,9 +12,9 @@ bool IRCClient::LoadConfig()
     if(sIRC._Host.size() > 0)
         ConfCnt++;
     sIRC._Port = sConfig.GetIntDefault("irc.port", 6667);
-    sIRC._User = sConfig.GetStringDefault("irc.user", "mangchat");
-    sIRC._Pass = sConfig.GetStringDefault("irc.pass", "mangchat");
-    sIRC._Nick = sConfig.GetStringDefault("irc.nick", "mangchat");
+    sIRC._User = sConfig.GetStringDefault("irc.user", "cybmc");
+    sIRC._Pass = sConfig.GetStringDefault("irc.pass", "cybmc");
+    sIRC._Nick = sConfig.GetStringDefault("irc.nick", "cybmc");
     sIRC._Auth = sConfig.GetIntDefault("irc.auth", 0);
     sIRC._ICC = sConfig.GetStringDefault("irc.icc", "001");
     sIRC._defchan = sConfig.GetStringDefault("irc.defchan", "lobby");

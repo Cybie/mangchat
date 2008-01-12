@@ -1,3 +1,6 @@
+#ifndef _IRC_CLIENT_ONLINE
+#define _IRC_CLIENT_ONLINE
+
 #include "IRCClient.h"
 #include "IRCCmd.h"
 
@@ -20,3 +23,5 @@ class mcs_OnlinePlayers : public ZThread::Runnable
     public:
         _CDATA *CD;
 };
+
+#endif

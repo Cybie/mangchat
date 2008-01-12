@@ -53,6 +53,7 @@ class IRCCmd
         bool    IsValid(std::string USER, std::string FROM, std::string CHAT);
         void    Handle_Logout(_CDATA *CD);
         bool    IsLoggedIn(std::string USER);
+        _client *GetClient(std::string cname);
 
     public:
         static std::string MakeMsg(const char *sLine, ... );
