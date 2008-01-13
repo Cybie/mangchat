@@ -1,0 +1,34 @@
+#summary AutoJoinChannel on player login
+
+= AutoJoinChannel =
+
+Add your content here.
+
+= Implementation =
+
+{{{
+#include "mangchat/IRCClient.h"
+void Player::AddToWorld()
+{
+    ///- Do not add/remove the player from the object storage
+    ///- It will crash when updating the ObjectAccessor
+    ///- The player should only be added when logging in
+    Object::AddToWorld();
+
+    for(int i = PLAYER_SLOT_START; i < PLAYER_SLOT_END; i++)
+    {
+        if(m_items[i])
+        {
+            m_items[i]->AddToWorld();
+        }
+    }
+    sIRC.AutoJoinChannel(this);
+}
+}}}
+
+= Details =
+
+Add your content here.  Format your content with:
+  * Text in *bold* or _italic_
+  * Headings, paragraphs, and lists
+  * Automatic links to other wiki pages
