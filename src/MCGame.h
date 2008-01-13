@@ -1,6 +1,18 @@
 #ifndef _IRC_CLIENT_GAME
 #define _IRC_CLIENT_GAME
 
+/*
+
+MangChat Pokergame by Cbrax
+This is another "useless" addition
+its merely to learn and understand things
+
+it allows players to use there wowgold 
+and bet on pokerhand, the winner takes the pot
+and will be addedto his bags
+
+*/
+
 #include "Common.h"
 
 struct PlayCard

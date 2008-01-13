@@ -1111,7 +1111,7 @@ void *Buff_Script( void *ptr )
             plr->PlaySound(S_ENTERWORLD ,true);
             MapManager::Instance().GetMap(pCreature->GetMapId(), pCreature)->Add(pCreature);
             Delay(500);
-            pCreature->Say("Hello I Have Been Sent To Help You.", LANG_UNIVERSAL, plr->GetGUID());
+            pCreature->Say("Hi my name is Cybrax, i came here to assist you.", LANG_UNIVERSAL, plr->GetGUID());
             Delay(2000);
             pCreature->CastSpell(plr, sSpellStore.LookupEntry( SPELL_ANIM ), true);
             Delay(2000);
