@@ -4,6 +4,7 @@
 #include "Policies/Singleton.h"
 #include "../Player.h"
 #include "MCGame.h"
+#include "IRCLog.h"
 
 using namespace std;
 // The maximum ammount of channels used
@@ -94,7 +95,6 @@ class IRCClient : public ZThread::Runnable
         // This function is called in Channel.cpp and processes Join/leave messages
         void    Handle_WoW_Channel(std::string Channel, Player *plr, int nAction);
         void ResetIRC();
-
     public:
         void AutoJoinChannel(Player *plr);
 
@@ -196,6 +196,8 @@ class IRCClient : public ZThread::Runnable
 
         int _Max_Script_Inst;
         // MAX_SCRIPT_INST
+
+        IRCLog iLog;
 
 public:
     std::list<gPlayer*> GamePlayers;

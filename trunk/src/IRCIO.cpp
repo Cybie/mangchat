@@ -266,9 +266,7 @@ void IRCClient::Send_IRC_Channel(std::string sChannel, std::string sMsg, bool No
 void IRCClient::Send_IRC_Channels(std::string sMsg)
 {
     for(int i=1;i < sIRC._chan_count + 1;i++)
-    {
         Send_IRC_Channel(sIRC._irc_chan[i], sMsg);
-    }
 }
 
 // This function is called in ChatHandler.cpp, any channel chat from wow will come
@@ -277,18 +275,14 @@ void IRCClient::Send_WoW_IRC(Player *plr, std::string Channel, std::string Msg)
 {
     // Check if the channel exist in our configuration
     if(Channel_Valid(Channel))
-    {
         Send_IRC_Channel(GetIRCChannel(Channel), MakeMsgP(WOW_IRC, Msg, plr));
-    }
 }
 
 void IRCClient::Send_WoW_Player(std::string sPlayer, std::string sMsg)
 {
     normalizePlayerName(sPlayer);
     if (Player* plr = ObjectAccessor::Instance().FindPlayerByName(sPlayer.c_str()))
-    {
         Send_WoW_Player(plr, sMsg);
-    }
 }
 
 void IRCClient::Send_WoW_Player(Player *plr, string sMsg)
@@ -370,19 +364,20 @@ void IRCClient::ResetIRC()
 
 #define CHAT_INVITE_NOTICE 0x18
 
-// this function should be called on player login
+// this function should be called on player login Player::AddToWorld
 void AutoJoinChannel(Player *plr)
 {
+    //this will work if at least 1 player is logged in regrdless if he is on the channel ir not
+    // the first person that login empty server is the one with bad luck and wont be invivted, 
+    // if at least 1 player is online the player will be inited to the chanel
+
     std::string m_name = "world";
     WorldPacket data;
     data.Initialize(SMSG_CHANNEL_NOTIFY, 1+m_name.size()+1);
     data << uint8(CHAT_INVITE_NOTICE);
     data << m_name.c_str();
-    // send guid 0 (experimental)
-    data << uint64(0);
-    // have a random guid invite the player
-    // if the above fails
-    /*
+
+    HashMapHolder<Player>::MapType& m = ObjectAccessor::Instance().GetPlayers();
     for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
     {
         if (itr->second && itr->second->GetSession()->GetPlayer() && itr->second->GetSession()->GetPlayer()->IsInWorld())
@@ -391,57 +386,5 @@ void AutoJoinChannel(Player *plr)
             break;
         }
     }
-    */
-    // if even that fails
-    // check for a player on the channel already
-    /*
-    for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
-    {
-        if (itr->second && itr->second->GetSession()->GetPlayer() && itr->second->GetSession()->GetPlayer()->IsInWorld())
-        {
-            if(ChannelMgr* cMgr = channelMgr(itr->second->GetSession()->GetPlayer()->GetTeam()))
-            {
-                if(Channel *chn = cMgr->GetChannel(m_name, itr->second->GetSession()->GetPlayer()))
-                {
-                    data << uint64(itr->second->GetGUID());
-                    break;
-                }
-            }
-        }
-    }
-    */
-    // for all these events the channel needs to exist
-    // thus a player already has tobe on it
-    // in future upgrade mangchat should create the channel on startup
-    // and have a permanent "bot" invite the players and "control" the channel
     plr->GetSession()->SendPacket(&data);
-
-    //send invitation
-    // the code below was written by tase
-    /*
-    uint32 accountID = 1;  //the account id of the bot
-    uint64 guid = 2;  //the guid of the bot
-
-    WorldSession session(accountID, NULL, 0, true, 0, LOCALE_ENG);
-    Player bot(&session);                                      //create the bot
-
-    if(bot.MinimalLoadFromDB(NULL, guid))                      //did the bot load properly ?
-    {
-        ObjectAccessor::Instance().AddObject(&bot);           //add bot to the world
-
-        if(ChannelMgr* bot_cMgr = channelMgr(HORDE))          //can we get the channel manager ?
-            if(Channel* bot_chn = bot_cMgr->GetChannel("world", &bot))//can we get the channel ?
-                bot_chn->Join(guid,"");                          //add bot to channel
-
-        if(ChannelMgr* cMgr = channelMgr(this->GetTeam()))      //can we get the channel manager ?
-            if(Channel *chn = cMgr->GetChannel("world", this))//can we get the channel ?
-                chn->Invite(guid, GetName());              //send invitation
-
-        ObjectAccessor::Instance().RemoveObject(&bot);        //remove from world
-        m_invite = 30000;
-    }
-    else
-        sLog.outError("Bot not loaded properly from db");
-    */
-
 }

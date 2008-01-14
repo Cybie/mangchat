@@ -447,6 +447,11 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Access Denied! Your Security Level Is Too Low To Use This Command!", true, MSG_NOTICE);
         if(cValid == false && (sIRC.BOTMASK & 4) != 0)
             sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Unknown Command!", true, MSG_NOTICE);
+
+        if(cValid)
+        {
+            sIRC.iLog.WriteLog("%s used command %s with parameters %s", CDATA.USER.c_str(), CDATA.CMD.c_str(), CDATA.PARAMS.c_str());
+        }
         return cValid;
     }
     return false;
