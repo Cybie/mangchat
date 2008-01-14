@@ -1,5 +1,6 @@
 #ifndef _IRC_CMD_H
 #define _IRC_CMD_H
+
 #define MAX_CLIENTS 50
 #include "Common.h"
 #include "../Player.h"

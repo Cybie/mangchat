@@ -35,6 +35,8 @@ IRCClient::~IRCClient(){}
 // This function is called when the thread is created in Master.cpp (mangosd)
 void IRCClient::run()
 {
+    iLog.WriteLog("---MangChat Started...\n");
+
     setlocale(LC_CTYPE, "en_ca.UTF-8");
     // before we begin we wait a few seconds
     // mangos is still starting up and max screw
