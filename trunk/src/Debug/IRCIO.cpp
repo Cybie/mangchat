@@ -1,187 +1,184 @@
 #include "IRCClient.h"
 #include "IRCCmd.h"
 #include "IRCFunc.h"
-#include "ObjectAccessor.h"
-#include "WorldPacket.h"
-#include "ChannelMgr.h"
-#include "Config/ConfigEnv.h"
+#include "../ObjectAccessor.h"
+#include "../WorldPacket.h"
+#include "../ChannelMgr.h"
+#include "../Config/ConfigEnv.h"
+#include "../Channel.h"
 
 IRCCmd Command;
 void IRCClient::Handle_IRC(std::string sData)
 {
-	sLog.outDebug(sData.c_str());
-	// If first 5 chars are ERROR then something is wrong
-	// either link is being closed, nickserv ghost command, etc...
-	
-	if(sData.substr(0, 5) == "ERROR")
+    sLog.outDebug(sData.c_str());
+    // If first 5 chars are ERROR then something is wrong
+    // either link is being closed, nickserv ghost command, etc...
+    if(sData.substr(0, 5) == "ERROR")
     {
-        	Disconnect();
-    }	    
-	if(sData.substr(0, 4) == "PING")
+        Disconnect();
+        return;
+    }
+    if(sData.substr(0, 4) == "PING")
     {
-		// if the first 4 characters contain PING
-		// the server is checking if we are still alive
-		// sen back PONG back plus whatever the server send with it
+        // if the first 4 characters contain PING
+        // the server is checking if we are still alive
+        // sen back PONG back plus whatever the server send with it
         SendIRC("PONG " + sData.substr(4, sData.size() - 4));
     }
-	else
-	{
-		// if the first line contains : its an irc message
-		// such as private messages channel join etc.
-		if(sData.substr(0, 1) == ":")
-		{
-			// find the spaces in the receieved line
-			size_t p1 = sData.find(" ");
-			size_t p2 = sData.find(" ", p1 + 1);
-			// because the irc protocol uses simple spaces
-			// to seperate data we can easy pick them out
-			// since we know the position of the spaces
-			std::string USR = sData.substr(1, p1 - 1);
-			std::string CMD = sData.substr(p1 + 1, p2 - p1 - 1);
-			// trasform the commands to lowercase to make sure they always match
-			std::transform(CMD.begin(), CMD.end(), CMD.begin(), towlower);
-			// Extract the username from the first part
-			std::string szUser = GetUser(USR);
-			// if we receieved the internet connect code
-			// we know for sure that were in and we can
-			// authenticate ourself.
-			if(CMD == sIRC._ICC)
-			{
-				// _Auth is defined in mangosd.conf (irc.auth)
-				// 0 do not authenticate
-				// 1 use nickserv
-				// 2 use quakenet
-				// aditionally you can provide you own authentication method here
-				switch(sIRC._Auth)
-				{
-					case 1:
-						SendIRC("PRIVMSG nickserv :IDENTIFY " + sIRC._Pass);
-						break;
-					case 2:
-						SendIRC("PRIVMSG Q@CServe.quakenet.org :AUTH " + sIRC._Nick + " " + sIRC._Pass);
-						break;
-				}
-				// if we join a default channel leave this now.
-				if(sIRC._ldefc==1)
-					SendIRC("PART #" + sIRC._defchan);
-				// Loop thru the channel array and send a command to join them on IRC.
-				for(int i=1;i < sIRC._chan_count + 1;i++)
-				{
-					SendIRC("JOIN #" + sIRC._irc_chan[i]);
-					Send_IRC_Channel(sIRC._irc_chan[i], sIRC.JoinMsg);
-				}
-			}
-			// IRC Command channel join.
-			// This command is receieved when MangChat joins a channel
-			// or someone else on irc joins the channel
-			if(CMD == "join")
-			{				
-				size_t p = sData.find(":", p1);
-				std::string CHAN = sData.substr(p + 1, sData.size() - p - 2);
-				// if the user is us it means we join the channel
-				if ((szUser == sIRC._Nick) )
-				{
-					// its us that joined the channel
-					Send_IRC_Channel(CHAN, sIRC.JoinMsg, true);
-				}
-				else
-				{
-					// if the user is not us its someone else that joins
-					// so we construct a message and send this to the clients.
-					// MangChat now uses Send_WoW_Channel to send to the client
-					// this makes MangChat handle the packets instead of previously the world.
-					if((sIRC.BOTMASK & 2) != 0)
-				    Send_WoW_Channel(GetWoWChannel(CHAN).c_str(), IRCcol2WoW(MakeMsg(MakeMsg(GetChatLine(JOIN_IRC), "$Name", szUser), "$Channel", GetWoWChannel(CHAN))));
-				}
-			}
-			// someone on irc left the channel
-			if(CMD == "part" || CMD == "quit")
-			{
-				size_t p3 = sData.find(" ", p2 + 1);
-				std::string CHAN = sData.substr(p2 + 1, p3 - p2 - 1);				
-				// Logout IRC Nick From MangChat If User Leaves Or Quits IRC.
-				if(Command.IsLoggedIn(szUser))
-				{
-					_CDATA CDATA;
-					CDATA.USER		= szUser;
-					Command.Handle_Logout(&CDATA);
-				}
-				if((sIRC.BOTMASK & 2) != 0)
-				Send_WoW_Channel(GetWoWChannel(CHAN).c_str(), IRCcol2WoW(MakeMsg(MakeMsg(GetChatLine(LEAVE_IRC), "$Name", szUser), "$Channel", GetWoWChannel(CHAN)))); 
-				// Construct a message and inform the clients on the same channel.
-			}
-			if (CMD == "nick" && (sIRC.BOTMASK & 128) != 0)
-			{
-				MakeMsg(MakeMsg(GetChatLine(CHANGE_NICK), "$Name", szUser), "$NewName", sData.substr(sData.find(":", p2) + 1));
-			}
-			// someone was kicked from irc
-			if (CMD == "kick")
-			{
-				// extract the details
-				size_t p3 = sData.find(" ", p2 + 1);
-				size_t p4 = sData.find(" ", p3 + 1);
-				size_t p5 = sData.find(":", p4);
-				std::string CHAN = sData.substr(p2 + 1, p3 - p2 - 1);
-				std::string WHO = sData.substr(p3 + 1, p4 - p3 - 1);
-				std::string BY = sData.substr(p4 + 1, sData.size() - p4 - 1);
-				// if the one kicked was us
-				if(WHO == sIRC._Nick)
-				{
-					// and autojoin is enabled
-					// return to the channel
-					if(sIRC._autojoinkick == 1)
-					{
-					   SendIRC("JOIN " + CHAN);
-					   Send_IRC_Channel(CHAN, sIRC.kikmsg, true);
-					}
-				}
-				else
-				{
-					// if it is not us who was kicked we need to inform the clients someone
-					// was removed from the channel
-					// construct a message and send it to the players.
-					Send_WoW_Channel(GetWoWChannel(CHAN).c_str(), "<IRC>[" + WHO + "]: Was Kicked From " + CHAN + " By: " + szUser);
-				}
-			}
-			// a chat message was receieved.
-			if(CMD == "privmsg")
-			{
-				// extract the values
-				size_t p = sData.find(" ", p2 + 1);
-				std::string FROM = sData.substr(p2 + 1, p - p2 - 1);
-				std::string CHAT = sData.substr(p + 2, sData.size() - p - 3);
-
-				// Lets Have A Look Here !!
-				ConvertwString(CHAT);
-
-				// if this is our username it means we recieved a PM
-				if(FROM == sIRC._Nick)
-				{
-					if(CHAT.find("VERSION") < CHAT.size())
-					{
-						Send_IRC_Channel(szUser, "VERSION MangChat v1.0 ©2007 Cybrax @ VisualDreams, Enhanced By: |Death|", true, MSG_NOTICE);
-					}
+    else
+    {
+        // if the first line contains : its an irc message
+        // such as private messages channel join etc.
+        if(sData.substr(0, 1) == ":")
+        {
+            // find the spaces in the receieved line
+            size_t p1 = sData.find(" ");
+            size_t p2 = sData.find(" ", p1 + 1);
+            // because the irc protocol uses simple spaces
+            // to seperate data we can easy pick them out
+            // since we know the position of the spaces
+            std::string USR = sData.substr(1, p1 - 1);
+            std::string CMD = sData.substr(p1 + 1, p2 - p1 - 1);
+            // trasform the commands to lowercase to make sure they always match
+            std::transform(CMD.begin(), CMD.end(), CMD.begin(), towlower);
+            // Extract the username from the first part
+            std::string szUser = GetUser(USR);
+            // if we receieved the internet connect code
+            // we know for sure that were in and we can
+            // authenticate ourself.
+            if(CMD == sIRC._ICC)
+            {
+                // _Auth is defined in mangosd.conf (irc.auth)
+                // 0 do not authenticate
+                // 1 use nickserv
+                // 2 use quakenet
+                // aditionally you can provide you own authentication method here
+                switch(sIRC._Auth)
+                {
+                    case 1:
+                        SendIRC("PRIVMSG nickserv :IDENTIFY " + sIRC._Pass);
+                        break;
+                    case 2:
+                        SendIRC("PRIVMSG Q@CServe.quakenet.org :AUTH " + sIRC._Nick + " " + sIRC._Pass);
+                        break;
+                }
+                // if we join a default channel leave this now.
+                if(sIRC._ldefc==1)
+                    SendIRC("PART #" + sIRC._defchan);
+                // Loop thru the channel array and send a command to join them on IRC.
+                for(int i=1;i < sIRC._chan_count + 1;i++)
+                {
+                    SendIRC("JOIN #" + sIRC._irc_chan[i]);
+                    Send_IRC_Channel(sIRC._irc_chan[i], sIRC.JoinMsg);
+                }
+            }
+            // IRC Command channel join.
+            // This command is receieved when MangChat joins a channel
+            // or someone else on irc joins the channel
+            if(CMD == "join")
+            {
+                size_t p = sData.find(":", p1);
+                std::string CHAN = sData.substr(p + 1, sData.size() - p - 2);
+                // if the user is us it means we join the channel
+                if ((szUser == sIRC._Nick) )
+                {
+                    // its us that joined the channel
+                    Send_IRC_Channel(CHAN, sIRC.JoinMsg, true);
+                }
+                else
+                {
+                    // if the user is not us its someone else that joins
+                    // so we construct a message and send this to the clients.
+                    // MangChat now uses Send_WoW_Channel to send to the client
+                    // this makes MangChat handle the packets instead of previously the world.
+                    if((sIRC.BOTMASK & 2) != 0)
+                        Send_WoW_Channel(GetWoWChannel(CHAN).c_str(), IRCcol2WoW(MakeMsg(MakeMsg(GetChatLine(JOIN_IRC), "$Name", szUser), "$Channel", GetWoWChannel(CHAN))));
+                }
+            }
+            // someone on irc left the channel
+            if(CMD == "part" || CMD == "quit")
+            {
+                size_t p3 = sData.find(" ", p2 + 1);
+                std::string CHAN = sData.substr(p2 + 1, p3 - p2 - 1);
+                // Logout IRC Nick From MangChat If User Leaves Or Quits IRC.
+                if(Command.IsLoggedIn(szUser))
+                {
+                    _CDATA CDATA;
+                    CDATA.USER      = szUser;
+                    Command.Handle_Logout(&CDATA);
+                }
+                if((sIRC.BOTMASK & 2) != 0)
+                    Send_WoW_Channel(GetWoWChannel(CHAN).c_str(), IRCcol2WoW(MakeMsg(MakeMsg(GetChatLine(LEAVE_IRC), "$Name", szUser), "$Channel", GetWoWChannel(CHAN))));
+                // Construct a message and inform the clients on the same channel.
+            }
+            if (CMD == "nick" && (sIRC.BOTMASK & 128) != 0)
+            {
+                MakeMsg(MakeMsg(GetChatLine(CHANGE_NICK), "$Name", szUser), "$NewName", sData.substr(sData.find(":", p2) + 1));
+            }
+            // someone was kicked from irc
+            if (CMD == "kick")
+            {
+                // extract the details
+                size_t p3 = sData.find(" ", p2 + 1);
+                size_t p4 = sData.find(" ", p3 + 1);
+                size_t p5 = sData.find(":", p4);
+                std::string CHAN = sData.substr(p2 + 1, p3 - p2 - 1);
+                std::string WHO = sData.substr(p3 + 1, p4 - p3 - 1);
+                std::string BY = sData.substr(p4 + 1, sData.size() - p4 - 1);
+                // if the one kicked was us
+                if(WHO == sIRC._Nick)
+                {
+                    // and autojoin is enabled
+                    // return to the channel
+                    if(sIRC._autojoinkick == 1)
+                    {
+                        SendIRC("JOIN " + CHAN);
+                        Send_IRC_Channel(CHAN, sIRC.kikmsg, true);
+                    }
+                }
+                else
+                {
+                    // if it is not us who was kicked we need to inform the clients someone
+                    // was removed from the channel
+                    // construct a message and send it to the players.
+                    Send_WoW_Channel(GetWoWChannel(CHAN).c_str(), "<IRC>[" + WHO + "]: Was Kicked From " + CHAN + " By: " + szUser);
+                }
+            }
+            // a chat message was receieved.
+            if(CMD == "privmsg")
+            {
+                // extract the values
+                size_t p = sData.find(" ", p2 + 1);
+                std::string FROM = sData.substr(p2 + 1, p - p2 - 1);
+                std::string CHAT = sData.substr(p + 2, sData.size() - p - 3);
+                // if this is our username it means we recieved a PM
+                if(FROM == sIRC._Nick)
+                {
+                    if(CHAT.find("\001VERSION\001") < CHAT.size())
+                    {
+                        Send_IRC_Channel(szUser, "\001VERSION MangChat v1.0 ©2007 Cybrax @ VisualDreams, Enhanced By: |Death|\001", true, MSG_NOTICE);
+                    }
                     // a pm is required for certain commands
-					// such as login. to validate the command
-					// we send it to the command class wich handles
-					// evrything else.
-					Command.IsValid(szUser, FROM, CHAT);
-				}
-				else
-				{
-					// if our name is not in it, it means we receieved chat on one of the channels
-					// magchat is in. the first thing we do is check if it is a command or not
-					if(!Command.IsValid(szUser, FROM, CHAT))
-						Send_WoW_Channel(GetWoWChannel(FROM).c_str(), IRCcol2WoW(MakeMsg(MakeMsg(GetChatLine(IRC_WOW), "$Name", szUser), "$Msg", CHAT)));
-					// ConvertwString(CHAT);
-					// if we indeed receieved a command we do not want to display this to the players
-					// so only incanse the isvalid command returns false it will be sent to all player.
-					// the isvalid function will automaitcly process the command on true.
-				}
-			}
-		}
-	}
+                    // such as login. to validate the command
+                    // we send it to the command class wich handles
+                    // evrything else.
+                    Command.IsValid(szUser, FROM, CHAT);
+                }
+                else
+                {
+                    // if our name is not in it, it means we receieved chat on one of the channels
+                    // magchat is in. the first thing we do is check if it is a command or not
+                    if(!Command.IsValid(szUser, FROM, CHAT))
+                        Send_WoW_Channel(GetWoWChannel(FROM).c_str(), IRCcol2WoW(MakeMsg(MakeMsg(GetChatLine(IRC_WOW), "$Name", szUser), "$Msg", CHAT)));
+                    // if we indeed receieved a command we do not want to display this to the players
+                    // so only incanse the isvalid command returns false it will be sent to all player.
+                    // the isvalid function will automaitcly process the command on true.
+                }
+            }
+        }
+    }
 }
+
 // This function is called in Channel.h
 // based on nAction it will inform the people on
 // irc when someone leaves one of the game channels.
@@ -193,16 +190,16 @@ void IRCClient::Handle_WoW_Channel(std::string Channel, Player *plr, int nAction
     {
         if(Channel_Valid(Channel))
         {
-                std::string GMRank = "";
-				std::string pname = plr->GetName();
-			bool DoGMAnnounce = false;
-			if (plr->GetSession()->GetSecurity() > 0 && (sIRC.BOTMASK & 8)!= 0)
-			    DoGMAnnounce = true;
-			if (plr->isGameMaster() && (sIRC.BOTMASK & 16)!= 0)
-				DoGMAnnounce = true;
-			if(DoGMAnnounce)
-			{
-                switch(plr->GetSession()->GetSecurity())//switch case to determine what rank the "gm" is
+            std::string GMRank = "";
+            std::string pname = plr->GetName();
+            bool DoGMAnnounce = false;
+            if (plr->GetSession()->GetSecurity() > 0 && (sIRC.BOTMASK & 8)!= 0)
+                DoGMAnnounce = true;
+            if (plr->isGameMaster() && (sIRC.BOTMASK & 16)!= 0)
+                DoGMAnnounce = true;
+            if(DoGMAnnounce)
+            {
+                switch(plr->GetSession()->GetSecurity())    //switch case to determine what rank the "gm" is
                 {
                     case 0: GMRank = "";break;
                     case 1: GMRank = sIRC.ojGM1;break;
@@ -215,62 +212,78 @@ void IRCClient::Handle_WoW_Channel(std::string Channel, Player *plr, int nAction
             std::string ChatTag = "";
             switch (plr->GetTeam())
             {
-                case 67:ChatTag.append("4");break; //horde
-                case 469:ChatTag.append("12");break; //alliance
+                case 67:ChatTag.append("\0034");break;      //horde
+                case 469:ChatTag.append("\00312");break;    //alliance
             }
             std::string query = "INSERT INTO `IRC_Inchan` VALUES (%d,'"+pname+"','"+Channel+"')";
-			std::string lchan = "DELETE FROM `IRC_Inchan` WHERE `guid` = %d AND `channel` = '"+Channel+"'";
-			switch(nAction)
-            {   
-				case CHANNEL_JOIN:
-					Send_IRC_Channel(GetIRCChannel(Channel), ChatTag + MakeMsg(MakeMsg(MakeMsg(GetChatLine(JOIN_WOW), "$Name", plr->GetName()), "$Channel", Channel), "$GM", GMRank));					
-					WorldDatabase.PExecute(lchan.c_str(), plr->GetGUID());
-					WorldDatabase.PExecute(query.c_str(), plr->GetGUID());					
-					break;
+            std::string lchan = "DELETE FROM `IRC_Inchan` WHERE `guid` = %d AND `channel` = '"+Channel+"'";
+            switch(nAction)
+            {
+                case CHANNEL_JOIN:
+                    Send_IRC_Channel(GetIRCChannel(Channel), ChatTag + MakeMsg(MakeMsg(MakeMsg(GetChatLine(JOIN_WOW), "$Name", plr->GetName()), "$Channel", Channel), "$GM", GMRank));
+                    WorldDatabase.PExecute(lchan.c_str(), plr->GetGUID());
+                    WorldDatabase.PExecute(query.c_str(), plr->GetGUID());
+                    break;
                 case CHANNEL_LEAVE:
                     Send_IRC_Channel(GetIRCChannel(Channel), ChatTag + MakeMsg(MakeMsg(MakeMsg(GetChatLine(LEAVE_WOW), "$Name", plr->GetName()), "$Channel", Channel), "$GM", GMRank));
                     WorldDatabase.PExecute(lchan.c_str(), plr->GetGUID());
-					break;
+                    break;
             }
         }
     }
 }
+
 // This function sends chat to a irc channel or user
 // to prevent the # beeing appended to send a msg to a user
 // set the NoPrefix to true
 void IRCClient::Send_IRC_Channel(std::string sChannel, std::string sMsg, bool NoPrefix, int nType)
 {
-	std::string mType = "PRIVMSG";
-	switch(nType)
-	{
-		case MSG_NOTICE:
-			mType = "NOTICE";
-			break;
-		case MSG_ACTION:
-			mType = "ACTION";
-			break;
-	}
-	if(sIRC.Connected)
-	{
-		if(NoPrefix)
-		{
-			if(sChannel.substr(0,1) != "#" && (sIRC.BOTMASK & 32)!= 0)
-				mType = "NOTICE";			
-			SendIRC(mType + " " + sChannel + " :" + sMsg);
+        // printf("[Send IRC ->] %s \n",sMsg);
+		int check1 = sMsg.find("Ã");
+		// int p2 = sMsg.find("Ã", p1 + 1);
+//		printf("[IRC] -> %s \n",sMsg.c_str());
+		if(check1 > 0) {
+			char temp_ch = 'Ã';
+			std::string temp = sMsg.substr(check1 + 1 , 1);
+			int value_special_ch = char_traits<char>:: to_int_type (temp_ch);
+			int value_ch = char_traits<char>:: to_int_type (temp[0]);
+			printf("[Send IRC ->] %s \n[temp] -> %s \n[value] %i \n[special] %i\n",sMsg.c_str(), temp.c_str(), value_ch, value_special_ch);
 		}
-		else
-			SendIRC(mType + " #" + sChannel + " :" + sMsg);
-	}
+
+	std::string mType = "PRIVMSG";
+    switch(nType)
+    {
+        case MSG_NOTICE:
+            mType = "NOTICE";
+            break;
+        case MSG_ACTION:
+            mType = "ACTION";
+            break;
+    }
+    if(sIRC.Connected)
+    {
+        if(NoPrefix)
+        {
+            if(sChannel.substr(0,1) != "#" && (sIRC.BOTMASK & 32)!= 0)
+                mType = "NOTICE";
+            SendIRC(mType + " " + sChannel + " :" + sMsg);
+        }
+        else
+            SendIRC(mType + " #" + sChannel + " :" + sMsg);
+    }
 }
+
 // This function sends a message to all irc channels
 // that mangchat has in its configuration
 void IRCClient::Send_IRC_Channels(std::string sMsg)
 {
+
 	for(int i=1;i < sIRC._chan_count + 1;i++)
-	{
+    {
 		Send_IRC_Channel(sIRC._irc_chan[i], sMsg);
-	}
+    }
 }
+
 // This function is called in ChatHandler.cpp, any channel chat from wow will come
 // to this function, validates the channel and constructs a message that is send to IRC
 void IRCClient::Send_WoW_IRC(Player *plr, std::string Channel, std::string Msg)
@@ -278,30 +291,33 @@ void IRCClient::Send_WoW_IRC(Player *plr, std::string Channel, std::string Msg)
     // Check if the channel exist in our configuration
     if(Channel_Valid(Channel))
     {
-		Send_IRC_Channel(GetIRCChannel(Channel), MakeMsgP(WOW_IRC, Msg, plr));
-	}
+        Send_IRC_Channel(GetIRCChannel(Channel), MakeMsgP(WOW_IRC, Msg, plr));
+    }
 }
+
 void IRCClient::Send_WoW_Player(std::string sPlayer, std::string sMsg)
 {
-	normalizePlayerName(sPlayer);
-	if (Player* plr = ObjectAccessor::Instance().FindPlayerByName(sPlayer.c_str()))
-	{
-		Send_WoW_Player(plr, sMsg);
-	}
+    normalizePlayerName(sPlayer);
+    if (Player* plr = ObjectAccessor::Instance().FindPlayerByName(sPlayer.c_str()))
+    {
+        Send_WoW_Player(plr, sMsg);
+    }
 }
+
 void IRCClient::Send_WoW_Player(Player *plr, string sMsg)
 {
-	WorldPacket data(SMSG_MESSAGECHAT, 200);
-	data << (uint8)CHAT_MSG_SYSTEM;
-	data << (uint32)LANG_UNIVERSAL;
-	data << (uint64)plr->GetGUID();
-	data << (uint32)0;
-	data << (uint64)plr->GetGUID();
-	data << (uint32)(sMsg.length()+1);
-	data << sMsg;
-	data << (uint8)0;
-	plr->GetSession()->SendPacket(&data);
+    WorldPacket data(SMSG_MESSAGECHAT, 200);
+    data << (uint8)CHAT_MSG_SYSTEM;
+    data << (uint32)LANG_UNIVERSAL;
+    data << (uint64)plr->GetGUID();
+    data << (uint32)0;
+    data << (uint64)plr->GetGUID();
+    data << (uint32)(sMsg.length()+1);
+    data << sMsg;
+    data << (uint8)0;
+    plr->GetSession()->SendPacket(&data);
 }
+
 // This function will construct and send a packet to all players
 // on the given channel ingame. (previuosly found in world.cpp)
 // it loops thru all sessions and checks if they are on the channel
@@ -309,9 +325,47 @@ void IRCClient::Send_WoW_Player(Player *plr, string sMsg)
 void IRCClient::Send_WoW_Channel(const char *channel, std::string chat)
 {
 	if(!(strlen(channel) > 0))
-		return;
+        return;
+//	char c_converted[1024];
+//	size_t size_conv = 0;
+//	size_t size_chat = strlen(chat.c_str())+1;
+	std::string chat_changed;
+	// size_conv _strxfrm_l( c_converted, chat.c_str(), 1000, locale);
+//	size_conv = strxfrm(c_converted, chat.c_str(), size_chat);
+	chat_changed = "";
+	//	 Ã¥ Ã… Ã¤ Ã„ Ã¶ Ã–    å Å ä Ä ö Ö
+	for(int I=0; I < strlen(chat.c_str())+1; I++)
+	{
+		if (chat[I] == 'å') {chat_changed += "Ã¥";}
+		else if (chat[I] == 'Å') {chat_changed += "Ã…";}
+		else if (chat[I] == 'ä') {chat_changed += "Ã¤";}
+		else if (chat[I] == 'Ä') {chat_changed += "Ã„";}
+		else if (chat[I] == 'ö') {chat_changed += "Ã¶";}
+		else if (chat[I] == 'Ö') {chat_changed += "Ã–";}
+		else chat_changed += chat[I];
+
+	}
+//	chat2 = chat;
+	// replace(chat2.begin(),chat2.end(), (const char) 'å', (const char) 'Ã' + (const char)'¥');
+	chat = chat_changed;
+	// chat.replace("å","Ã¥"); 
+	printf("[From IRC] -> %s \n",chat.c_str());
+	printf("[To wow] -> %s \n", chat_changed.c_str());    
+//	printf("[To wow] -> %s [converted] %i \n", c_converted, size_conv);    
+
+	//	printf("[To wow] -> %s \n", chat2.c_str());    
+	// printf("[Send IRC ->] %s \n",sMsg);
+/*		int check1 = chat.find("å");
+		// int p2 = sMsg.find("Ã", p1 + 1);
+		if(check1 > 0) {
+			char temp_ch = 'å';
+			std::string temp = chat.substr(check1 + 1 , 1);
+			int value_special_ch = char_traits<char>:: to_int_type (temp_ch);
+			int value_ch = char_traits<char>:: to_int_type (temp[0]);
+			printf("[Send wow ->] %s \n[temp] -> %s \n[value] %i \n[special] %i\n",chat.c_str(), temp.c_str(), value_ch, value_special_ch);
+		} */
 	HashMapHolder<Player>::MapType& m = ObjectAccessor::Instance().GetPlayers();
-	for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
+    for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
     {
         if (itr->second && itr->second->GetSession()->GetPlayer() && itr->second->GetSession()->GetPlayer()->IsInWorld())
         {
@@ -319,12 +373,9 @@ void IRCClient::Send_WoW_Channel(const char *channel, std::string chat)
             {
                 if(Channel *chn = cMgr->GetChannel(channel, itr->second->GetSession()->GetPlayer()))
                 {
-					
-					// std::wstring chat2;
-					// std::string tempare = ConvertwString(chat,chat2);
-					WorldPacket data;
-		    data.Initialize(SMSG_MESSAGECHAT);
-		    data << (uint8)CHAT_MSG_CHANNEL;
+                    WorldPacket data;
+                    data.Initialize(SMSG_MESSAGECHAT);
+                    data << (uint8)CHAT_MSG_CHANNEL;
                     data << (uint32)LANG_UNIVERSAL;
                     data << (uint64)0;
                     data << (uint32)0;
@@ -332,8 +383,6 @@ void IRCClient::Send_WoW_Channel(const char *channel, std::string chat)
                     data << (uint64)0;
                     data << (uint32) (strlen(chat.c_str()) + 1);
                     data << chat.c_str();
-//                    data << (uint32) (wcslen(tempare.c_str()) + 1);
-//                    data << tempare.c_str();
                     data << (uint8)0;
                     itr->second->GetSession()->SendPacket(&data);
                 }
@@ -341,17 +390,18 @@ void IRCClient::Send_WoW_Channel(const char *channel, std::string chat)
         }
     }
 }
+
 void IRCClient::Send_WoW_System(std::string Message)
 {
-	HashMapHolder<Player>::MapType& m = ObjectAccessor::Instance().GetPlayers();
-	for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
+    HashMapHolder<Player>::MapType& m = ObjectAccessor::Instance().GetPlayers();
+    for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
     {
         if (itr->second && itr->second->GetSession()->GetPlayer() && itr->second->GetSession()->GetPlayer()->IsInWorld())
         {
             WorldPacket data;
             data.Initialize(CHAT_MSG_SYSTEM);
-	    data << (uint8)CHAT_MSG_SYSTEM;
-	    data << (uint32)LANG_UNIVERSAL;
+            data << (uint8)CHAT_MSG_SYSTEM;
+            data << (uint32)LANG_UNIVERSAL;
             data << (uint64)0;
             data << (uint32)0;
             data << (uint64)0;
@@ -362,141 +412,87 @@ void IRCClient::Send_WoW_System(std::string Message)
         }
     }
 }
+
 void IRCClient::ResetIRC()
 {
-	SendData("QUIT");
-	Disconnect();
+    SendData("QUIT");
+    Disconnect();
 }
 
-std::wstring IRCClient::ConvertString(std::string sData, std::string &sData2)
+#define CHAT_INVITE_NOTICE 0x18
+
+// this function should be called on player login
+void AutoJoinChannel(Player *plr)
 {
-			char sData_Translate[1024];
-			size_t Num_Translated;
-			_locale_t locale;
-			std::string sData_Translate_String;
-			size_t origsize = strlen(sData.c_str()) + 1;
-			const size_t newsize = 1024;
-		    size_t convertedChars = 0;
-		    wchar_t wcstring[newsize];
-			locale = _create_locale(LC_ALL, sIRC.localeInfo_start);
-			// Convert to a wchar_t*
-			mbstowcs_s(&convertedChars, wcstring, origsize, sData.c_str(), _TRUNCATE);
-			origsize = wcslen(wcstring) + 1;
-			
-			if(locale == NULL) 
-			{
-				sLog.outString("Ouch Dident Work !!");
+    std::string m_name = "world";
+    WorldPacket data;
+    data.Initialize(SMSG_CHANNEL_NOTIFY, 1+m_name.size()+1);
+    data << uint8(CHAT_INVITE_NOTICE);
+    data << m_name.c_str();
+    // send guid 0 (experimental)
+    data << uint64(0);
+    // have a random guid invite the player
+    // if the above fails
+    /*
+    for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
+    {
+        if (itr->second && itr->second->GetSession()->GetPlayer() && itr->second->GetSession()->GetPlayer()->IsInWorld())
+        {
+            data << uint64(itr->second->GetGUID());
+            break;
+        }
+    }
+    */
+    // if even that fails
+    // check for a player on the channel already
+    /*
+    for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
+    {
+        if (itr->second && itr->second->GetSession()->GetPlayer() && itr->second->GetSession()->GetPlayer()->IsInWorld())
+        {
+            if(ChannelMgr* cMgr = channelMgr(itr->second->GetSession()->GetPlayer()->GetTeam()))
+            {
+                if(Channel *chn = cMgr->GetChannel(m_name, itr->second->GetSession()->GetPlayer()))
+                {
+                    data << uint64(itr->second->GetGUID());
+                    break;
+                }
+            }
+        }
+    }
+    */
+    // for all these events the channel needs to exist
+    // thus a player already has tobe on it
+    // in future upgrade mangchat should create the channel on startup
+    // and have a permanent "bot" invite the players and "control" the channel
+    plr->GetSession()->SendPacket(&data);
 
-			}
-			else
-			{
-				// sData_Translate = (wchar_t *)malloc(1000);
-				sLog.outString("- YEAH YEAH YEAH -");
-				Num_Translated = _strxfrm_l(sData_Translate, sData.c_str(), 1000, locale);
-				sData_Translate_String = sData_Translate;
-				// free(sData_Translate);
-				 _free_locale(locale);
-			}
+    //send invitation
+    // the code below was written by tase
+    /*
+    uint32 accountID = 1;  //the account id of the bot
+    uint64 guid = 2;  //the guid of the bot
 
-			
-		    // wcscat_s(wcstring, L" (wchar_t *)");
-			// sLog.outString("Length -> [wcstring] %i [data] %i Converted -> [%i]", wcslen(wcstring), strlen(sData), convertedChars);	
+    WorldSession session(accountID, NULL, 0, true, 0, LOCALE_ENG);
+    Player bot(&session);                                      //create the bot
 
-			// Convert to a char*
-			origsize = wcslen(wcstring) + 1;
-			convertedChars = 0;
-			char nstring[newsize];
-			wcstombs_s(&convertedChars, nstring, origsize, wcstring, _TRUNCATE);
-			// strcat_s(nstring, " (char *)");
-			sLog.outString("---------------- Debug info ----------------");
-			sLog.outString("-                                          -");
-			// sLog.outString("- Length -> [sData] %i [nstring] %i Converted -> [%i]", strlen(sData.c_str()), strlen(nstring), convertedChars);
-			// wprintf(L"wcstring -> [%ls]\n", (const wchar_t *) wcstring);
-			// sLog.outString("sData -> [%s] nstring -> [%s]", sData.c_str(), (const char *) nstring);
-			char sData2_Ansi[1024];
-			 
-			WideCharToMultiByte( CP_ACP, 0, wcstring, sizeof(wcstring)/sizeof(wcstring[0]), sData2_Ansi, 512, NULL, NULL );
-			// strcpy((char *) sData2,sData2_Ansi);
-			sData2 = sData2_Ansi;
-			// sLog.outString("- Length -> [sData2_Ansi] %i [sData2_Ansi] %i", strlen(sData2_Ansi), sizeof(sData2_Ansi));
-			// sLog.outString("- Length -> [sData2] %i [sData2] %i", strlen(sData2.c_str()), sData2.length());
-			printf("Translated [%s] -> Length[%i] Num [%i] \n",sData_Translate_String.c_str(), strlen(sData_Translate_String.c_str()), Num_Translated);
-			// sLog.outString("- Tanslate [%s] Num [%i]", sData_Translate_String.c_str(), Num_Translated);
-			if(strcmp(sData.c_str(), sData_Translate)) 
-			{
-				sLog.outString("Dident do anything in diffrence");
-			}
-			else
-			{
-				sLog.outString("YES YES YES !! There where Diffrens");
-				sData2 = sData_Translate;
-			}
-			return wcstring;
-}
-std::string IRCClient::ConvertwString(std::string sData, std::wstring &sData2)
-{
-			wchar_t sData_Translate[1024];
-			size_t Num_Translated;
-			_locale_t locale;
-			std::string sData_Translate_String;
-			size_t origsize = strlen(sData.c_str()) + 1;
-			const size_t newsize = 1024;
-		    size_t convertedChars = 0;
-		    wchar_t wcstring[newsize];
-			locale = _create_locale(LC_ALL, sIRC.localeInfo_start);
-			// Convert to a wchar_t*
-			mbstowcs_s(&convertedChars, wcstring, origsize, sData.c_str(), _TRUNCATE);
-//			wcstombs_s(&convertedChars, (char *) sData_Translate_String, origsize, sData.c_str(), _TRUNCATE);
-			origsize = wcslen(wcstring) + 1;
-			
-			if(locale == NULL) 
-			{
-				sLog.outString("Ouch Dident Work !!");
+    if(bot.MinimalLoadFromDB(NULL, guid))                      //did the bot load properly ?
+    {
+        ObjectAccessor::Instance().AddObject(&bot);           //add bot to the world
 
-			}
-			else
-			{
-				// sData_Translate = (wchar_t *)malloc(1000);
-				sLog.outString("- YEAH YEAH YEAH -");
-				Num_Translated = _wcsxfrm_l(sData_Translate, wcstring, 1000, locale);
-				sData2 = sData_Translate;
-				// free(sData_Translate);
-				_free_locale(locale);
-			}
+        if(ChannelMgr* bot_cMgr = channelMgr(HORDE))          //can we get the channel manager ?
+            if(Channel* bot_chn = bot_cMgr->GetChannel("world", &bot))//can we get the channel ?
+                bot_chn->Join(guid,"");                          //add bot to channel
 
-			
-		    // wcscat_s(wcstring, L" (wchar_t *)");
-			// sLog.outString("Length -> [wcstring] %i [data] %i Converted -> [%i]", wcslen(wcstring), strlen(sData), convertedChars);	
+        if(ChannelMgr* cMgr = channelMgr(this->GetTeam()))      //can we get the channel manager ?
+            if(Channel *chn = cMgr->GetChannel("world", this))//can we get the channel ?
+                chn->Invite(guid, GetName());              //send invitation
 
-			// Convert to a char*
-			origsize = wcslen(wcstring) + 1;
-			convertedChars = 0;
-			char nstring[newsize];
-			wcstombs_s(&convertedChars, nstring, origsize, wcstring, _TRUNCATE);
-			// strcat_s(nstring, " (char *)");
-			sLog.outString("---------------- Debug info ----------------");
-			sLog.outString("-                                          -");
-			// sLog.outString("- Length -> [sData] %i [nstring] %i Converted -> [%i]", strlen(sData.c_str()), strlen(nstring), convertedChars);
-			// wprintf(L"wcstring -> [%ls]\n", (const wchar_t *) wcstring);
-			// sLog.outString("sData -> [%s] nstring -> [%s]", sData.c_str(), (const char *) nstring);
-			// char sData2_Ansi[1024];
-			 
-			// WideCharToMultiByte( CP_ACP, 0, wcstring, sizeof(wcstring)/sizeof(wcstring[0]), sData2_Ansi, 512, NULL, NULL );
-			// strcpy((char *) sData2,sData2_Ansi);
-			// sData2 = sData2_Ansi;
-			// sLog.outString("- Length -> [sData2_Ansi] %i [sData2_Ansi] %i", strlen(sData2_Ansi), sizeof(sData2_Ansi));
-			// sLog.outString("- Length -> [sData2] %i [sData2] %i", strlen(sData2.c_str()), sData2.length());
-			// _cwprintf(L"Translated [%s] -> Length[%i] Num [%i] \n",sData_Translate, wcslen(sData_Translate), Num_Translated);
-			// wprintf(L"Translated [%s] -> Length[%i] Num [%i] \n",sData_Translate, wcslen(sData_Translate), Num_Translated);
-			// sLog.outString("- Tanslate [%s] Num [%i]", sData_Translate_String.c_str(), Num_Translated);
-			if( _wcsicoll(wcstring,sData_Translate))
-			{
-				sLog.outString("Dident do anything in diffrence");
-			}
-			else
-			{
-				sLog.outString("YES YES YES !! There where Diffrens");
-				sData2 = sData_Translate;
-			}
-			return sData_Translate_String;
+        ObjectAccessor::Instance().RemoveObject(&bot);        //remove from world
+        m_invite = 30000;
+    }
+    else
+        sLog.outError("Bot not loaded properly from db");
+    */
+
 }
