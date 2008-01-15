@@ -15,7 +15,6 @@ using namespace std;
 #define MAX_CHAT_LINES 10
 // time we need to wait before we try another connecton attempt
 // Default is 30 seconds
-#define WAIT_CONNECT_TIME sIRC._wct
 #define MAX_SCRIPT_INST 10
 // CLINES is used for the default chatlines
 // By using the GetChatLine function its easier and faster
