@@ -16,11 +16,13 @@
 
 #include "Policies/SingletonImp.h"
 INSTANTIATE_SINGLETON_1( IRCClient );
+
 #ifdef WIN32
-#define Delay(x) Sleep(x)
+    #define Delay(x) Sleep(x)
 #else
-#define Delay(x) sleep(x / 1000)
+    #define Delay(x) sleep(x / 1000)
 #endif
+
 // IRCClient Constructor
 IRCClient::IRCClient()
 {
@@ -31,23 +33,25 @@ IRCClient::IRCClient()
 
 // IRCClient Destructor
 IRCClient::~IRCClient(){}
-// ZThread Entry
-// This function is called when the thread is created in Master.cpp (mangosd)
+
+// ZThread Entry This function is called when the thread is created in Master.cpp (mangosd)
 void IRCClient::run()
 {
     iLog.WriteLog("---MangChat Started...\n");
 
-    setlocale(LC_CTYPE, "en_ca.UTF-8");
+    // future task 
+    // setlocale(LC_CTYPE, "en_ca.UTF-8");
+
     // before we begin we wait a few seconds
     // mangos is still starting up and max screw
     // up the console text
-    Delay(1500);
+    ZThread::Thread::sleep(500);
     sLog.outString("\n%s\n%s\n%s\n%s\n%s\n",
         "***************************************",
         "#    MANGCHAT Threaded IRC CLient     #",
         "#     With enhanched GM Control.      #",
         "***************************************",
-        "***** MangChat: Version 1.0.0.0 *******");
+        "***** MangChat: Version 1.2.0.1 *******");
     // Initialize connection count 0
     int cCount = 0;
     // Clean Up MySQL Tables
@@ -64,7 +68,7 @@ void IRCClient::run()
         if(this->InitSock())
         {
             // Connect To The IRC Server
-            sLog.outString("*** MangChat: Connection Try # %d ******", cCount);
+            sLog.outString("*** MangChat: Connecting to %s Try # %d ******", sIRC._Host.c_str(), cCount);
             if(this->Connect(sIRC._Host.c_str(), sIRC._Port))
             {
                 // On connection success reset the connection counter
@@ -88,7 +92,7 @@ void IRCClient::run()
                 sIRC.Active = false;
             // If we need to reattempt a connection wait WAIT_CONNECT_TIME milli seconds before we try again
             if(sIRC.Active)
-                ZThread::Thread::sleep(WAIT_CONNECT_TIME);
+                ZThread::Thread::sleep(sIRC._wct);
             //Delay(WAIT_CONNECT_TIME);
         }
         else

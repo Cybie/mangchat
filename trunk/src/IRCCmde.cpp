@@ -14,6 +14,7 @@
 #define Send_Player(p, m)           sIRC.Send_WoW_Player(p, m)
 #define Send_IRC(c, m, b)       sIRC.Send_IRC_Channel(c, m, b)
 #define Send_IRCA(c, m, b, t)       sIRC.Send_IRC_Channel(c, m, b, t)
+
 #ifdef WIN32
 #define Delay(x) Sleep(x)
 #else
@@ -98,7 +99,7 @@ void IRCCmd::Handle_Logout(_CDATA *CD)
     {
         if((*i)->Name == CD->USER)
         {
-            _CLIENTS.erase(i);
+            i = _CLIENTS.erase(i);
             //_CLIENTS.remove(*i);
             delete (*i);
             Send_IRC(CD->USER, "You Are Now Logged Out!", true);
@@ -276,10 +277,10 @@ void IRCCmd::Info_Server(_CDATA *CD)
 void IRCCmd::Item_Player(_CDATA *CD)
 {
     std::string* _PARAMS = getArray(CD->PARAMS, 3);
-    std::string player  = _PARAMS[0];
-    normalizePlayerName(player);
-    uint64 guid = objmgr.GetPlayerGUIDByName(player.c_str());
-    Player *chr = objmgr.GetPlayer(guid);
+
+    
+    normalizePlayerName(_PARAMS[0]);
+    Player *chr = GetPlayer(_PARAMS[0].c_str());
     if(_PARAMS[1] == "add")
     {
         std::string s_param  = _PARAMS[2];
@@ -409,7 +410,7 @@ void IRCCmd::Item_Player(_CDATA *CD)
             {
                 dbitemname = (char*)result->Fetch()->GetString();
             }
-            std::string iinfo = " \00313[" +player+ "] : Has Been Given Item "+dbitemname+". From: "+CD->USER.c_str()+".";
+            std::string iinfo = " \00313[" + _PARAMS[0] + "] : Has Been Given Item "+dbitemname+". From: "+CD->USER.c_str()+".";
             Send_IRC(ChanOrPM(CD), iinfo, true);
             delete result;
         }
@@ -417,7 +418,7 @@ void IRCCmd::Item_Player(_CDATA *CD)
         {
             char s_countForStore[255];
             sprintf(s_countForStore,"%d",countForStore);
-            std::string ierror = " \00313["+player+"] : Could Not Create All Items! " +s_countForStore+ " Item(s) Were Not Created!";
+            std::string ierror = " \00313["+ _PARAMS[0] +"] : Could Not Create All Items! " +s_countForStore+ " Item(s) Were Not Created!";
             Send_IRC(ChanOrPM(CD), ierror, true);
         }
     }
@@ -428,15 +429,14 @@ void IRCCmd::Jail_Player(_CDATA *CD)
     if(ValidParams(CD->PARAMS, 1))
     {
         std::string* _PARAMS = getArray(CD->PARAMS, 2);
-        if (Player* plr = GetPlayer(_PARAMS[0]))
+        if (Player *plr = GetPlayer(_PARAMS[0]))
         {
-            uint64 guid = objmgr.GetPlayerGUIDByName(_PARAMS[0]);
             std::string sReason = "";
             if(_PARAMS[1] == "release")
             {
                 float rmapid, rposx, rposy, rposz, rposo = 0;
                 CharacterDatabase.escape_string(_PARAMS[0]);
-                QueryResult *result = CharacterDatabase.PQuery( "SELECT `map`, `position_x`, `position_y`, `position_z` FROM `character_homebind` WHERE `guid` = '" I64FMTD "'", (uint64)guid );
+                QueryResult *result = CharacterDatabase.PQuery( "SELECT `map`, `position_x`, `position_y`, `position_z` FROM `character_homebind` WHERE `guid` = '" I64FMTD "'", plr->GetGUID() );
                 if(result)
                 {
                     Field *fields = result->Fetch();
@@ -513,11 +513,11 @@ void IRCCmd::Kill_Player(_CDATA *CD)
 void IRCCmd::Level_Player(_CDATA *CD)
 {
     std::string* _PARAMS = getArray(CD->PARAMS, CD->PCOUNT);
-    std::string player  = _PARAMS[0];
-    normalizePlayerName(player);
-    uint64 guid = objmgr.GetPlayerGUIDByName(player.c_str());
-    std::string s_newlevel  = _PARAMS[1];
-    uint8 i_newlvl = atoi(s_newlevel.c_str());
+    
+    normalizePlayerName(_PARAMS[0]);
+
+    uint64 guid = GetPlayer(_PARAMS[0].c_str())->GetGUID();
+    uint8 i_newlvl = atoi(_PARAMS[1].c_str());
     if(!guid)
     {
         Send_IRCA(CD->USER, " \0034[ERROR] : Player Not Found!", true, MSG_NOTICE);
@@ -556,7 +556,7 @@ void IRCCmd::Level_Player(_CDATA *CD)
             Player::SaveValuesArrayInDB(values,guid);
         }
     }
-    Send_IRC(ChanOrPM(CD), " \00313["+player+"] : Has Been Leveled To "+s_newlevel+". By: "+CD->USER+".", true);
+    Send_IRC(ChanOrPM(CD), " \00313[" + _PARAMS[0]+ "] : Has Been Leveled To " + _PARAMS[1] + ". By: "+CD->USER+".", true);
 }
 
 void IRCCmd::Money_Player(_CDATA *CD)
@@ -937,6 +937,7 @@ void IRCCmd::Tele_Player(_CDATA *CD)
     std::string rMsg = " \0034[ERROR] : Teleport Failed!";
     std::string wMsg = "Invalid Tele Location";
     std::string* _PARAMS = getArray(CD->PARAMS, 4);
+
     if (Player* plr = GetPlayer(_PARAMS[0]))
     {
         std::string* _PARAMS = getArray(CD->PARAMS, 3);
@@ -1007,11 +1008,11 @@ void IRCCmd::Tele_Player(_CDATA *CD)
         }
         else if(_PARAMS[1] == "to")
         {
-            Player* plr2 = GetPlayer(_PARAMS[2]);
-            uint64 guid = objmgr.GetPlayerGUIDByName(_PARAMS[2]);
-            if(plr2)
+            // why is this here guid can be obtained from plr2 object
+            //uint64 guid = objmgr.GetPlayerGUIDByName(_PARAMS[2]);
+            if(Player* plr2 = GetPlayer(_PARAMS[2]))
             {
-                Player::LoadPositionFromDB(mapid,pX,pY,pZ,pO,guid);
+                Player::LoadPositionFromDB(mapid,pX,pY,pZ,pO, plr2->GetGUID());
                 rMsg = MakeMsg(" \00313[%s] : Teleported To Player: [%s] By: %s.",
                     _PARAMS[0].c_str(),
                     _PARAMS[2].c_str(),
@@ -1074,11 +1075,6 @@ void IRCCmd::Who_Logged(_CDATA *CD)
 // and should be spawn and talk to the correct player regaredles where
 // they are in the world
 // ** USE THIS AT YOUR OWN RISK
-#define NPC_ENTRY sIRC.ZBUFF_NPC
-#define SPELL_ANIM sIRC.ZBUFF_ANIM
-#define CAST_SPELL_1 sIRC.ZBUFF_SPELL1                      // 25389 POWER WORD
-#define CAST_SPELL_2 sIRC.ZBUFF_SPELL2                      // 10157 //27126 //ARC INT
-#define CAST_SPELL_3 sIRC.ZBUFF_SPELL3                      // 25312// DIVINE SPIRIT
 #ifdef _WIN32
 DWORD   WINAPI Buff_Script(void* ptr)
 #else
@@ -1087,9 +1083,11 @@ void *Buff_Script( void *ptr )
 {
     if(sIRC._Max_Script_Inst == MAX_SCRIPT_INST)
         return 0;
+
     sIRC._Max_Script_Inst++;
     std::string pname = (char *)ptr;
     normalizePlayerName(pname);
+
     if (Player* plr = ObjectAccessor::Instance().FindPlayerByName(pname.c_str()))
     {
         Creature* pCreature = new Creature(plr);
@@ -1099,7 +1097,7 @@ void *Buff_Script( void *ptr )
             plr->GetPositionY() - 3,
             plr->GetPositionZ() + 5,
             plr->GetOrientation() - 2.5,
-            NPC_ENTRY,
+            sIRC.ZBUFF_NPC,
             plr->GetTeam())) { delete pCreature; }
             else
         {
@@ -1111,12 +1109,12 @@ void *Buff_Script( void *ptr )
             plr->PlaySound(S_ENTERWORLD ,true);
             MapManager::Instance().GetMap(pCreature->GetMapId(), pCreature)->Add(pCreature);
             Delay(500);
-            pCreature->Say("Hi my name is Cybrax, i came here to assist you.", LANG_UNIVERSAL, plr->GetGUID());
+            pCreature->Say("Hello i am Cybrax, i a here to  you.", LANG_UNIVERSAL, plr->GetGUID());
             Delay(2000);
-            pCreature->CastSpell(plr, sSpellStore.LookupEntry( SPELL_ANIM ), true);
+            pCreature->CastSpell(plr, sSpellStore.LookupEntry( sIRC.ZBUFF_ANIM ), true);
             Delay(2000);
             pCreature->CombatStop();
-            if(SpellEntry const *spellInfo = sSpellStore.LookupEntry( CAST_SPELL_1 ))
+            if(SpellEntry const *spellInfo = sSpellStore.LookupEntry( sIRC.ZBUFF_SPELL1 ))
             {
                 for(uint32 i = 0;i<3;i++)
                 {
@@ -1131,7 +1129,7 @@ void *Buff_Script( void *ptr )
                 }
             }
             Delay(1000);
-            if(SpellEntry const *spellInfo = sSpellStore.LookupEntry( CAST_SPELL_2 ))
+            if(SpellEntry const *spellInfo = sSpellStore.LookupEntry( sIRC.ZBUFF_SPELL2 ))
             {
                 for(uint32 i = 0;i<3;i++)
                 {
@@ -1146,7 +1144,7 @@ void *Buff_Script( void *ptr )
                 }
             }
             Delay(1000);
-            if(SpellEntry const *spellInfo = sSpellStore.LookupEntry( CAST_SPELL_3 ))
+            if(SpellEntry const *spellInfo = sSpellStore.LookupEntry( sIRC.ZBUFF_SPELL3 ))
             {
                 for(uint32 i = 0;i<3;i++)
                 {
@@ -1181,10 +1179,10 @@ void IRCCmd::Zbuff_Player(_CDATA *CD)
     if (Player* plr = GetPlayer(_PARAMS[0]))
     {
         #ifdef _WIN32
-        CreateThread(NULL, 0, Buff_Script, (void*)plr->GetName(), 0, NULL);
+            CreateThread(NULL, 0, Buff_Script, (void*)plr->GetName(), 0, NULL);
         #else
-        MThread *newthr = new MThread ();
-        pthread_create(&newthr->tid, NULL, &Buff_Script, (void*)plr->GetName());
+            MThread *newthr = new MThread ();
+            pthread_create(&newthr->tid, NULL, &Buff_Script, (void*)plr->GetName());
         #endif
         sIRC.Send_IRC_Channel(ChanOrPM(CD), MakeMsg(" \00313[%s] : Has Been Buffed!",_PARAMS[0].c_str()), true);
     }
