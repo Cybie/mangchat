@@ -83,7 +83,11 @@ class IRCClient : public ZThread::Runnable
         void    Send_IRC_Channel(std::string sChannel, std::string sMsg, bool NoPrefix = false, int nType = MSG_PRIV);
         // Sends a message to all IRC Channels
         void    Send_IRC_Channels(std::string sMsg);
-        std::string MakeMsg(std::string msg, std::string var, std::string val)
+		
+		// Converter for diffrent charset !!
+		bool Converter(const char* tocode, const char* fromcode, const char *chat, std::string &converted_utf = std::string(""));
+
+		std::string MakeMsg(std::string msg, std::string var, std::string val)
         {
             std::size_t start = msg.find(var);
             if (start != std::string::npos)

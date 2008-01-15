@@ -238,17 +238,14 @@ void IRCClient::Handle_WoW_Channel(std::string Channel, Player *plr, int nAction
 // set the NoPrefix to true
 void IRCClient::Send_IRC_Channel(std::string sChannel, std::string sMsg, bool NoPrefix, int nType)
 {
-        // printf("[Send IRC ->] %s \n",sMsg);
-		int check1 = sMsg.find("Ã");
-		// int p2 = sMsg.find("Ã", p1 + 1);
-//		printf("[IRC] -> %s \n",sMsg.c_str());
-		if(check1 > 0) {
-			char temp_ch = 'Ã';
-			std::string temp = sMsg.substr(check1 + 1 , 1);
-			int value_special_ch = char_traits<char>:: to_int_type (temp_ch);
-			int value_ch = char_traits<char>:: to_int_type (temp[0]);
-			printf("[Send IRC ->] %s \n[temp] -> %s \n[value] %i \n[special] %i\n",sMsg.c_str(), temp.c_str(), value_ch, value_special_ch);
-		}
+	// Creates the string that recives if all works
+	std::string sMsg2 = sMsg;
+
+	// This does the thing !!
+	if(Converter("char", "UTF-8", sMsg2.c_str(), sMsg2)) sMsg=sMsg2;
+	
+	// Just to check that it works !!
+	sLog.outString("Debug [%s]", sMsg.c_str());
 
 	std::string mType = "PRIVMSG";
     switch(nType)
@@ -323,93 +320,61 @@ void IRCClient::Send_WoW_Player(Player *plr, string sMsg)
 // it loops thru all sessions and checks if they are on the channel
 // if so construct a packet and send it.
 
-void converter(const char *chat) {
+bool IRCClient::Converter(const char* tocode, const char* fromcode, const char *chat, std::string &converted_utf) {
+// extern void error();
 iconv_t cd;
-cd	= iconv_open("ASCII", "UTF-8");
+cd	= iconv_open(tocode, fromcode);
 if (cd != (iconv_t) -1) {
-	printf("Ahh We now have ability to convert via iconv\n");
+	// Yes whe now can convert chars into UTF-8
+
 	size_t size_orig = strlen(chat);
-	size_t size_new = 1024; // = reply.size();
-	char *chat_converted; // = (char **)malloc(reply.length() * sizeof(char));
-	// const char *chat_orgi = chat; // = (char *)malloc(reply.length() * sizeof(char)); // = reply; // = (char **)malloc(reply.length() * sizeof(char));
-	sLog.outString("%s",chat);
-	sLog.outDebug("%s",chat);
+	size_t size_new = (size_t) 2040;
+
+	char just_test[2048] = "";
+	char *chat_converted = just_test;
 	size_t size_converted;
+
+	// Lets convert from Chars to UTF-8
 	size_converted = iconv(cd, &chat, &size_orig, &chat_converted, &size_new);
+	
+	// If its converted right lets send it back
+	if(size_converted != -1) {
+		// Yes it was converted right and we can safley return the chars to bee sent into the Wow channel
+		converted_utf = just_test;
+	} else {
+		// Debug ínfo of something goes wrong. A good thing to have when testing right now
+		printf("Couldent convert the chars ??\nError will follow -> ");
+		int error_number = errno;
+		printf("[%i]\n",error_number);
+		if(error_number == EINVAL) printf("Input conversion stopped due to an incomplete character or shift sequence at the end of the input buffer.\n");
+		if(error_number == EILSEQ) printf("Input conversion stopped due to an input byte that does not belong to the input codeset.\n");
+		if(error_number == E2BIG)  printf("Input conversion stopped due to lack of space in the output buffer. inbytesleft has the number of bytes to be converted.\n");
+		return false;
+	}	
 
-	while (size_orig > (size_t) 0) {
-//			size_converted = iconv(cd, NULL, NULL, &chat_converted, &size_new);
-
-
-		if(size_converted != (size_t) -1) {
-			// printf("Changed -> %s \n",chat_converted);
-			// printf("Orig [%i] new [%i]",size_orig,size_new);
-			printf("left [%i]", size_orig);
-
-		} else {
-			printf("Couldent convert ??\n");
-			break;
-		}
-
-		if(size_orig < (size_t) 1) {
-			printf("finnished");
-			printf("Changed -> %s \n",chat_converted);
-			break;
-		}
+	// Lets turn of the convert string. This will be moved later for better support
+	iconv_close(cd);
+	return true;
+	} else {
+		printf("Coulden even start to Convert HMM (MAJOR ERROR)!! ?? !!\n");
+		return false;
 	}
-  iconv_close(cd);
- } else printf("Coulden even start to Convert HMM !! ?? !!\n");
-	  // free(chat_converted);
-	  // free(chat_orgi);
-	  // free(size_orig);
-	  // free(size_new);
-	  // free(size_converted);
 };
 
 void IRCClient::Send_WoW_Channel(const char *channel, std::string chat)
 {
 	if(!(strlen(channel) > 0))
         return;
-	converter(chat.c_str());
+	
+	// Creates the string that recives if all works
+	std::string chat2 = chat;
 
-//	char c_converted[1024];
-//	size_t size_conv = 0;
-//	size_t size_chat = strlen(chat.c_str())+1;
-	std::string chat_changed;
-	// size_conv _strxfrm_l( c_converted, chat.c_str(), 1000, locale);
-//	size_conv = strxfrm(c_converted, chat.c_str(), size_chat);
-	chat_changed = "";
-	//	 Ã¥ Ã… Ã¤ Ã„ Ã¶ Ã–    å Å ä Ä ö Ö
-	for(int I=0; I < strlen(chat.c_str())+1; I++)
-	{
-		if (chat[I] == 'å') {chat_changed += "Ã¥";}
-		else if (chat[I] == 'Å') {chat_changed += "Ã…";}
-		else if (chat[I] == 'ä') {chat_changed += "Ã¤";}
-		else if (chat[I] == 'Ä') {chat_changed += "Ã„";}
-		else if (chat[I] == 'ö') {chat_changed += "Ã¶";}
-		else if (chat[I] == 'Ö') {chat_changed += "Ã–";}
-		else chat_changed += chat[I];
-
-	}
-//	chat2 = chat;
-	// replace(chat2.begin(),chat2.end(), (const char) 'å', (const char) 'Ã' + (const char)'¥');
-	chat = chat_changed;
-	// chat.replace("å","Ã¥"); 
-	printf("[From IRC] -> %s \n",chat.c_str());
-	printf("[To wow] -> %s \n", chat_changed.c_str());    
-//	printf("[To wow] -> %s [converted] %i \n", c_converted, size_conv);    
-
-	//	printf("[To wow] -> %s \n", chat2.c_str());    
-	// printf("[Send IRC ->] %s \n",sMsg);
-/*		int check1 = chat.find("å");
-		// int p2 = sMsg.find("Ã", p1 + 1);
-		if(check1 > 0) {
-			char temp_ch = 'å';
-			std::string temp = chat.substr(check1 + 1 , 1);
-			int value_special_ch = char_traits<char>:: to_int_type (temp_ch);
-			int value_ch = char_traits<char>:: to_int_type (temp[0]);
-			printf("[Send wow ->] %s \n[temp] -> %s \n[value] %i \n[special] %i\n",chat.c_str(), temp.c_str(), value_ch, value_special_ch);
-		} */
+	// This does the thing !!
+	if(Converter("UTF-8", "char", chat2.c_str(), chat2)) chat=chat2;
+	
+	// Just to check that it works !!
+	sLog.outString("Debug [%s]", chat.c_str());
+	
 	HashMapHolder<Player>::MapType& m = ObjectAccessor::Instance().GetPlayers();
     for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
     {
