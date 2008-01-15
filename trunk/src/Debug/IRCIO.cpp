@@ -322,10 +322,56 @@ void IRCClient::Send_WoW_Player(Player *plr, string sMsg)
 // on the given channel ingame. (previuosly found in world.cpp)
 // it loops thru all sessions and checks if they are on the channel
 // if so construct a packet and send it.
+
+void converter(const char *chat) {
+iconv_t cd;
+cd	= iconv_open("ASCII", "UTF-8");
+if (cd != (iconv_t) -1) {
+	printf("Ahh We now have ability to convert via iconv\n");
+	size_t size_orig = strlen(chat);
+	size_t size_new = 1024; // = reply.size();
+	char *chat_converted; // = (char **)malloc(reply.length() * sizeof(char));
+	// const char *chat_orgi = chat; // = (char *)malloc(reply.length() * sizeof(char)); // = reply; // = (char **)malloc(reply.length() * sizeof(char));
+	sLog.outString("%s",chat);
+	sLog.outDebug("%s",chat);
+	size_t size_converted;
+	size_converted = iconv(cd, &chat, &size_orig, &chat_converted, &size_new);
+
+	while (size_orig > (size_t) 0) {
+//			size_converted = iconv(cd, NULL, NULL, &chat_converted, &size_new);
+
+
+		if(size_converted != (size_t) -1) {
+			// printf("Changed -> %s \n",chat_converted);
+			// printf("Orig [%i] new [%i]",size_orig,size_new);
+			printf("left [%i]", size_orig);
+
+		} else {
+			printf("Couldent convert ??\n");
+			break;
+		}
+
+		if(size_orig < (size_t) 1) {
+			printf("finnished");
+			printf("Changed -> %s \n",chat_converted);
+			break;
+		}
+	}
+  iconv_close(cd);
+ } else printf("Coulden even start to Convert HMM !! ?? !!\n");
+	  // free(chat_converted);
+	  // free(chat_orgi);
+	  // free(size_orig);
+	  // free(size_new);
+	  // free(size_converted);
+};
+
 void IRCClient::Send_WoW_Channel(const char *channel, std::string chat)
 {
 	if(!(strlen(channel) > 0))
         return;
+	converter(chat.c_str());
+
 //	char c_converted[1024];
 //	size_t size_conv = 0;
 //	size_t size_chat = strlen(chat.c_str())+1;

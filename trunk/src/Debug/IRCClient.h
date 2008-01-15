@@ -4,7 +4,9 @@
 #include "Policies/Singleton.h"
 #include "../Player.h"
 #include "MCGame.h"
-
+#include "iconv.h"
+#include "libcharset.h"
+	  
 using namespace std;
 // The maximum ammount of channels used
 // in the channel array you can have as much channels as you

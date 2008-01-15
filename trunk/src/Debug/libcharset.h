@@ -25,7 +25,7 @@
 #define LIBCHARSET_DLL_EXPORTED __declspec(dllimport)
 #endif
 
-#include <localcharset.h>
+#include "localcharset.h"
 
 
 #ifdef __cplusplus
