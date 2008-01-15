@@ -101,6 +101,13 @@ void IRCClient::Disconnect()
         #endif
     }
 }
+int convertStringToChar(string& str, char** data)
+{
+*data = (char*)malloc(str.length() * sizeof(char));
+memset((void*)*data,0,sizeof(*data));
+strcpy(*data,str.c_str());
+return 0;
+}
 
 void IRCClient::SockRecv()
 {
@@ -127,7 +134,8 @@ void IRCClient::SockRecv()
             std::istringstream iss(szBuffer);
             while(getline(iss, reply))
             {
-                Handle_IRC(reply);
+
+				Handle_IRC(reply);
             }
         }
     }

@@ -38,8 +38,8 @@ IRCClient::~IRCClient(){}
 // This function is called when the thread is created in Master.cpp (mangosd)
 void IRCClient::run()
 {
-	char * collate = setlocale(LC_COLLATE, "swedish");
-    char * ctype = setlocale(LC_CTYPE, "English");
+//	char * collate = setlocale(LC_COLLATE, "swedish");
+//    char * ctype = setlocale(LC_CTYPE, "English");
     // char * ctype = setlocale(LC_CTYPE, "en_ca.UTF-8");
     // before we begin we wait a few seconds
     // mangos is still starting up and max screw
@@ -52,8 +52,8 @@ void IRCClient::run()
         "***************************************",
         "***** MangChat: Version 1.0.0.0 *******");
     // Initialize connection count 0
-	sLog.outString("supported language (LC_COLLATE) = %s", collate);
-	sLog.outString("supported language (LC_CTYPE)   = %s", ctype);
+//	sLog.outString("supported language (LC_COLLATE) = %s", collate);
+//	sLog.outString("supported language (LC_CTYPE)   = %s", ctype);
 	int cCount = 0;
     // Clean Up MySQL Tables
     sLog.outString("*** MangChat: Cleaning Up Inchan Table*");
