@@ -242,8 +242,8 @@ void IRCClient::Send_IRC_Channel(std::string sChannel, std::string sMsg, bool No
 	// Creates the string that recives if all works
 	std::string sMsg2 = sMsg;
 	// This does the thing !!
-	if(Converter("char", "UTF-8", sMsg2.c_str(), sMsg2))
-        sMsg=sMsg2;
+	if(ConvertUTF8("char", "UTF-8", sMsg2.c_str(), sMsg2))
+        sMsg = sMsg2;
 
     std::string mType = "PRIVMSG";
     switch(nType)
@@ -404,7 +404,7 @@ void ConvertCToT(TCHAR* pszDest, const CHAR* pszSrc)
 }
 */
 
-bool IRCClient::Converter(const char* tocode, const char* fromcode, const char *chat, std::string &converted_utf)
+bool IRCClient::ConvertUTF8(const char* tocode, const char* fromcode, const char *chat, std::string &converted_utf)
 {
     // extern void error();
     iconv_t cd;
@@ -412,42 +412,52 @@ bool IRCClient::Converter(const char* tocode, const char* fromcode, const char *
     if (cd != (iconv_t) -1)
     {
 	    // Yes whe now can convert chars into UTF-8
-
 	    size_t size_orig = strlen(chat);
-	    size_t size_new = (size_t) 2040;
+	    size_t size_new = 2040;
 
 	    char just_test[2048] = "";
 	    char *chat_converted = just_test;
-	    size_t size_converted;
 
 	    // Lets convert from Chars to UTF-8
-	    size_converted = iconv(cd, &chat, &size_orig, &chat_converted, &size_new);
+	    size_t size_converted = iconv(cd, &chat, &size_orig, &chat_converted, &size_new);
 	
 	    // If its converted right lets send it back
 	    if(size_converted != -1)
-        {
-		    // Yes it was converted right and we can safley return the chars to bee sent into the Wow channel
 		    converted_utf = just_test;
-	    }
         else
         {
     		// Debug ínfo of something goes wrong. A good thing to have when testing right now
-	    	printf("Couldent convert the chars ??\nError will follow -> ");
-		    int error_number = errno;
-    		printf("[%i]\n",error_number);
-	    	if(error_number == EINVAL) printf("Input conversion stopped due to an incomplete character or shift sequence at the end of the input buffer.\n");
-		    if(error_number == EILSEQ) printf("Input conversion stopped due to an input byte that does not belong to the input codeset.\n");
-    		if(error_number == E2BIG)  printf("Input conversion stopped due to lack of space in the output buffer. inbytesleft has the number of bytes to be converted.\n");
-	    	return false;
-	    }	
+//	    	printf("Couldent convert the chars ??\nError will follow -> ");
+//		    int error_number = errno;
 
-	    // Lets turn of the convert string. This will be moved later for better support
-	    iconv_close(cd);
+            int retval = errno;
+            sLog.outError("ICONV Conversion error %d", retval);
+    	    iconv_close(cd);
+
+            switch(retval)
+            {
+            case EINVAL:
+                {
+                //Input conversion stopped due to an incomplete character or shift sequence at the end of the input buffer.
+    	    	return false;
+                }
+            case EILSEQ:
+                {
+                //Input conversion stopped due to an input byte that does not belong to the input codeset
+    	    	return false;
+                }
+            case E2BIG:
+                {
+                //Input conversion stopped due to lack of space in the output buffer. inbytesleft has the number of bytes to be converted.
+                return false;
+                }
+            }
+	    }	
 	    return true;
     }
     else
     {
-		printf("Coulden even start to Convert HMM (MAJOR ERROR)!! ?? !!\n");
+		//Coulden even start to Convert HMM (MAJOR ERROR)!! ?? !!
 		return false;
 	}
 }

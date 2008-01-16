@@ -18,11 +18,11 @@ int IRCCmd::ParamsValid(_CDATA *CD, int pCnt, int rLev)
     //CD->PCOUNT = pCnt;
     if(!CanUse(CD->USER, rLev))
         return E_AUTH;
-    if(pCnt == 0)
+    else if(pCnt == 0)
         return E_OK;
-    if(CD->PARAMS.size() == 0)
+    else if(CD->PARAMS.size() == 0)
         return E_SIZE;
-    if(!ValidParams(CD->PARAMS, pCnt))
+    else if(!ValidParams(CD->PARAMS, pCnt))
         return E_IVALID;
     return E_OK;
 }
@@ -44,7 +44,8 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
         CDATA.FROM      = FROM;
         CDATA.PCOUNT    = 0;
         CDATA.CMD       = _PARAMS[0].substr(1, _PARAMS[0].size() - 1);
-        CDATA.PARAMS            = _PARAMS[1];
+        CDATA.PARAMS    = _PARAMS[1];
+
         if(CDATA.CMD == "login")
         {
             if(FROM == sIRC._Nick)
