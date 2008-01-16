@@ -1,13 +1,13 @@
 /*
- * MangChat v1.0 By Cybrax (VisualDreams)
+ * MangChat By Cybrax (VisualDreams)
  *
- * This Program Is Free Software; You Can Redistribute It And/Or Modify
- * It Under The Terms Of The GNU General Public License
- * Written and Developed by Cybrax. cybrax_vd@hotmail.com
+ * This Program Is Free Software; You Can Redistribute It And/Or Modify It Under The Terms Of The GNU General Public License
+ * Written and Developed by Cybrax. cybraxvd@gmail.com
  * |Death| <death@hell360.net>, Lice <lice@yeuxverts.net>, Dj_baby & Sanaell, Tase
  * With Help And Support From The MaNGOS Project Community.
  * PLEASE RETAIN THE COPYRIGHT OF THE AUTHORS.
  */
+
 #include "IRCClient.h"
 #include "Log.h"
 #include "../World.h"
