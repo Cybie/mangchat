@@ -1,0 +1,11 @@
+#summary One-sentence summary of this page.
+
+= UTF-8 Characterset conversion =
+
+Add your content here.
+
+
+= Details =
+
+  * To enaled this future the _#DEFINE USE_UTF8 
+  * must be uncommented in _IRCClient.h_
