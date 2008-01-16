@@ -5,6 +5,8 @@
 #include "../Player.h"
 #include "MCGame.h"
 #include "IRCLog.h"
+#include "iconv.h"
+#include "libcharset.h"
 
 using namespace std;
 // The maximum ammount of channels used
@@ -96,6 +98,7 @@ class IRCClient : public ZThread::Runnable
         void ResetIRC();
     public:
         void AutoJoinChannel(Player *plr);
+        bool Converter(const char *tocode, const char *fromcode, const char *chat, std::string &converted_utf)
 
     public:
         bool Script_Lock[5];
