@@ -8,7 +8,8 @@
 #include "iconv.h"
 #include "libcharset.h"
 
-#define USE_UTF8
+//Uncomment this to enable UTF-8 conversion
+//#define USE_UTF8
 
 using namespace std;
 // The maximum ammount of channels used
