@@ -239,11 +239,11 @@ void IRCClient::Handle_WoW_Channel(std::string Channel, Player *plr, int nAction
 void IRCClient::Send_IRC_Channel(std::string sChannel, std::string sMsg, bool NoPrefix, int nType)
 {
 
-	// Creates the string that recives if all works
-	std::string sMsg2 = sMsg;
-	// This does the thing !!
-	if(ConvertUTF8(sMsg2.c_str(), sMsg2))
-        sMsg = sMsg2;
+    #ifdef USE_UTF8
+        std::string sMsg2 = sMsg;
+    	if(ConvertUTF8(sMsg2.c_str(), sMsg2))
+            sMsg = sMsg2;
+    #endif
 
     std::string mType = "PRIVMSG";
     switch(nType)
@@ -315,9 +315,11 @@ void IRCClient::Send_WoW_Channel(const char *channel, std::string chat)
     if(!(strlen(channel) > 0))
         return;
 
-    std::string chat2 = chat;
-    if(ConvertUTF8(chat2.c_str(), chat2))
-        chat = chat2;
+    #ifdef USE_UTF8
+        std::string chat2 = chat;
+        if(ConvertUTF8(chat2.c_str(), chat2))
+            chat = chat2;
+    #endif
 
     HashMapHolder<Player>::MapType& m = ObjectAccessor::Instance().GetPlayers();
     for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
