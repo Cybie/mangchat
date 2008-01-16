@@ -64,6 +64,7 @@ void mcs_OnlinePlayers::run()
                 sIRC.Send_IRC_Channel(IRCCmd::ChanOrPM(CD), IRCCmd::MakeMsg("\002 %s", IRCOut.c_str()), true);
                 IRCOut = "";
                 ZThread::Thread::sleep(1000);
+                // sleep a second not to spam irc
             }
         }
     }

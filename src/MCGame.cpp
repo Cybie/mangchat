@@ -137,9 +137,7 @@ void MC_Game::PokerGame()
     for(std::list<PlayCard*>::iterator i=GameDeck.begin(); i!=GameDeck.end();i++)
         delete (*i);
 
-    // delete pointers from deck
-    for(std::list<PlayCard*>::iterator i=Dealer.begin(); i!=Dealer.end();i++)
-        delete (*i);
+
 
     // delete players allocated by new ands card moved from deck
     for(std::list<gPlayer*>::iterator i=sIRC.GamePlayers.begin(); i!=sIRC.GamePlayers.end();i++)
@@ -148,7 +146,9 @@ void MC_Game::PokerGame()
         delete (*i)->Card2;
         delete (*i);
     }
-
+    // delete pointers from deck
+    for(std::list<PlayCard*>::iterator i=Dealer.begin(); i!=Dealer.end();i++)
+        delete (*i);
     // Clear playerlist
     sIRC.GamePlayers.clear();
 
@@ -184,7 +184,6 @@ void MC_Game::CheckHand(PlayCard *Card1, PlayCard *Card2)
     bool swapped = false;
     do
     {
-        // 1 pass of the bubble sort
         swapped = false;
         for(int i=0; i<4; i++)
         {
