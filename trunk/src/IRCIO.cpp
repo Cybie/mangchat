@@ -238,6 +238,13 @@ void IRCClient::Handle_WoW_Channel(std::string Channel, Player *plr, int nAction
 // set the NoPrefix to true
 void IRCClient::Send_IRC_Channel(std::string sChannel, std::string sMsg, bool NoPrefix, int nType)
 {
+
+	// Creates the string that recives if all works
+	std::string sMsg2 = sMsg;
+	// This does the thing !!
+	if(Converter("char", "UTF-8", sMsg2.c_str(), sMsg2))
+        sMsg=sMsg2;
+
     std::string mType = "PRIVMSG";
     switch(nType)
     {
@@ -365,7 +372,7 @@ void IRCClient::ResetIRC()
 #define CHAT_INVITE_NOTICE 0x18
 
 // this function should be called on player login Player::AddToWorld
-void AutoJoinChannel(Player *plr)
+void IRCClient::AutoJoinChannel(Player *plr)
 {
     //this will work if at least 1 player is logged in regrdless if he is on the channel ir not
     // the first person that login empty server is the one with bad luck and wont be invivted, 
@@ -387,4 +394,60 @@ void AutoJoinChannel(Player *plr)
         }
     }
     plr->GetSession()->SendPacket(&data);
+}
+
+/*
+void ConvertCToT(TCHAR* pszDest, const CHAR* pszSrc)
+{
+	for(int i = 0; i < strlen(pszSrc); i++)
+		pszDest[i] = (TCHAR) pszSrc[i];
+}
+*/
+
+bool IRCClient::Converter(const char* tocode, const char* fromcode, const char *chat, std::string &converted_utf)
+{
+    // extern void error();
+    iconv_t cd;
+    cd	= iconv_open(tocode, fromcode);
+    if (cd != (iconv_t) -1)
+    {
+	    // Yes whe now can convert chars into UTF-8
+
+	    size_t size_orig = strlen(chat);
+	    size_t size_new = (size_t) 2040;
+
+	    char just_test[2048] = "";
+	    char *chat_converted = just_test;
+	    size_t size_converted;
+
+	    // Lets convert from Chars to UTF-8
+	    size_converted = iconv(cd, &chat, &size_orig, &chat_converted, &size_new);
+	
+	    // If its converted right lets send it back
+	    if(size_converted != -1)
+        {
+		    // Yes it was converted right and we can safley return the chars to bee sent into the Wow channel
+		    converted_utf = just_test;
+	    }
+        else
+        {
+    		// Debug ínfo of something goes wrong. A good thing to have when testing right now
+	    	printf("Couldent convert the chars ??\nError will follow -> ");
+		    int error_number = errno;
+    		printf("[%i]\n",error_number);
+	    	if(error_number == EINVAL) printf("Input conversion stopped due to an incomplete character or shift sequence at the end of the input buffer.\n");
+		    if(error_number == EILSEQ) printf("Input conversion stopped due to an input byte that does not belong to the input codeset.\n");
+    		if(error_number == E2BIG)  printf("Input conversion stopped due to lack of space in the output buffer. inbytesleft has the number of bytes to be converted.\n");
+	    	return false;
+	    }	
+
+	    // Lets turn of the convert string. This will be moved later for better support
+	    iconv_close(cd);
+	    return true;
+    }
+    else
+    {
+		printf("Coulden even start to Convert HMM (MAJOR ERROR)!! ?? !!\n");
+		return false;
+	}
 }

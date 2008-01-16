@@ -99,7 +99,7 @@ void IRCCmd::Handle_Logout(_CDATA *CD)
     {
         if((*i)->Name == CD->USER)
         {
-            i = _CLIENTS.erase(i);
+            _CLIENTS.erase(i);
             //_CLIENTS.remove(*i);
             delete (*i);
             Send_IRC(CD->USER, "You Are Now Logged Out!", true);
@@ -1109,7 +1109,7 @@ void *Buff_Script( void *ptr )
             plr->PlaySound(S_ENTERWORLD ,true);
             MapManager::Instance().GetMap(pCreature->GetMapId(), pCreature)->Add(pCreature);
             Delay(500);
-            pCreature->Say("Hello i am Cybrax, i a here to  you.", LANG_UNIVERSAL, plr->GetGUID());
+            pCreature->Say("Hello i am Cybrax, i am here to enhance your abilities", LANG_UNIVERSAL, plr->GetGUID());
             Delay(2000);
             pCreature->CastSpell(plr, sSpellStore.LookupEntry( sIRC.ZBUFF_ANIM ), true);
             Delay(2000);

@@ -1,6 +1,17 @@
 #include "IRCClient.h"
 #define MAXDATASIZE 512
 #include <fcntl.h>
+
+#include <stdio.h>
+#include <sys/types.h>
+
+
+#define _UNICODE
+
+#ifdef _MBCS
+#undef _MBCS
+#endif
+
 bool IRCClient::InitSock()
 {
     #ifdef _WIN32
@@ -109,6 +120,7 @@ void IRCClient::SockRecv()
     char szBuffer[MAXDATASIZE];
 
     memset(szBuffer, 0, MAXDATASIZE );
+    
     int nBytesRecv = ::recv(sIRC.SOCKET, szBuffer, MAXDATASIZE - 1, 0 );
     if ( nBytesRecv == -1 )
     {
