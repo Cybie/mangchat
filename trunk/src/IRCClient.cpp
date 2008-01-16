@@ -42,7 +42,7 @@ void IRCClient::run()
     // future task 
     // setlocale(LC_CTYPE, "en_ca.UTF-8");
 
-    // before we begin we wait a few seconds
+    // before we begin we wait a few 
     // mangos is still starting up and max screw
     // up the console text
     ZThread::Thread::sleep(500);
@@ -51,7 +51,7 @@ void IRCClient::run()
         "#    MANGCHAT Threaded IRC CLient     #",
         "#     With enhanched GM Control.      #",
         "***************************************",
-        "***** MangChat: Version 1.2.0.1 *******");
+        "***** MangChat: Version 1.3.0.0 *******");
     // Initialize connection count 0
     int cCount = 0;
     // Clean Up MySQL Tables
