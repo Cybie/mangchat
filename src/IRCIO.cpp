@@ -315,8 +315,8 @@ void IRCClient::Send_WoW_Channel(const char *channel, std::string chat)
     if(!(strlen(channel) > 0))
         return;
 
-	std::string chat2 = chat;
-	if(ConvertUTF8(chat2.c_str(), chat2))
+    std::string chat2 = chat;
+    if(ConvertUTF8(chat2.c_str(), chat2))
         chat = chat2;
 
     HashMapHolder<Player>::MapType& m = ObjectAccessor::Instance().GetPlayers();
@@ -415,25 +415,18 @@ bool IRCClient::ConvertUTF8(const char *chat, std::string &converted_utf)
     iconv_t cd = iconv_open("char", "UTF-8");
     if (cd != (iconv_t) -1)
     {
-	    // Yes whe now can convert chars into UTF-8
-	    size_t size_orig = strlen(chat);
-	    size_t size_new = 2040;
+        size_t size_orig = strlen(chat);
+        size_t size_new = 2040;
 
-	    char just_test[2048] = "";
-	    char *chat_converted = just_test;
+        char just_test[2048] = "";
+        char *chat_converted = just_test;
 
-	    // Lets convert from Chars to UTF-8
-	    size_t size_converted = iconv(cd, &chat, &size_orig, &chat_converted, &size_new);
+        size_t size_converted = iconv(cd, &chat, &size_orig, &chat_converted, &size_new);
 	
-	    // If its converted right lets send it back
-	    if(size_converted != -1)
+        if(size_converted != -1)
 		    converted_utf = just_test;
         else
         {
-    		// Debug ínfo of something goes wrong. A good thing to have when testing right now
-//	    	printf("Couldent convert the chars ??\nError will follow -> ");
-//		    int error_number = errno;
-
             int retval = errno;
             sLog.outError("ICONV Conversion error %d", retval);
     	    iconv_close(cd);
@@ -457,11 +450,8 @@ bool IRCClient::ConvertUTF8(const char *chat, std::string &converted_utf)
                 }
             }
 	    }	
-	    return true;
+        return true;
     }
     else
-    {
-		//Coulden even start to Convert HMM (MAJOR ERROR)!! ?? !!
-		return false;
-	}
+        return false;
 }
