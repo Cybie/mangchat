@@ -242,7 +242,7 @@ void IRCClient::Send_IRC_Channel(std::string sChannel, std::string sMsg, bool No
 	// Creates the string that recives if all works
 	std::string sMsg2 = sMsg;
 	// This does the thing !!
-	if(ConvertUTF8("char", "UTF-8", sMsg2.c_str(), sMsg2))
+	if(ConvertUTF8(sMsg2.c_str(), sMsg2))
         sMsg = sMsg2;
 
     std::string mType = "PRIVMSG";
@@ -314,6 +314,11 @@ void IRCClient::Send_WoW_Channel(const char *channel, std::string chat)
 {
     if(!(strlen(channel) > 0))
         return;
+
+	std::string chat2 = chat;
+	if(ConvertUTF8(chat2.c_str(), chat2))
+        chat = chat2;
+
     HashMapHolder<Player>::MapType& m = ObjectAccessor::Instance().GetPlayers();
     for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
     {
@@ -404,11 +409,10 @@ void ConvertCToT(TCHAR* pszDest, const CHAR* pszSrc)
 }
 */
 
-bool IRCClient::ConvertUTF8(const char* tocode, const char* fromcode, const char *chat, std::string &converted_utf)
+bool IRCClient::ConvertUTF8(const char *chat, std::string &converted_utf)
 {
     // extern void error();
-    iconv_t cd;
-    cd	= iconv_open(tocode, fromcode);
+    iconv_t cd = iconv_open("char", "UTF-8");
     if (cd != (iconv_t) -1)
     {
 	    // Yes whe now can convert chars into UTF-8
