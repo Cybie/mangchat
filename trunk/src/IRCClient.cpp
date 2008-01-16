@@ -40,7 +40,7 @@ void IRCClient::run()
     iLog.WriteLog("---MangChat Started...\n");
 
     // future task 
-    // setlocale(LC_CTYPE, "en_ca.UTF-8");
+    setlocale(LC_CTYPE, "en_ca.UTF-8");
 
     // before we begin we wait a few 
     // mangos is still starting up and max screw

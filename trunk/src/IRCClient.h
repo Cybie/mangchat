@@ -8,6 +8,8 @@
 #include "iconv.h"
 #include "libcharset.h"
 
+#define USE_UTF8
+
 using namespace std;
 // The maximum ammount of channels used
 // in the channel array you can have as much channels as you
