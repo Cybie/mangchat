@@ -7,7 +7,5 @@ Thanks to a great effort of xeqtrobban UTF8 conversion has been added to mangcha
 
 = Details =
 
-  * To enale this future the *#DEFINE USE_UTF8* 
-  * must be uncommented in _IRCClient.h_
-  * you will also need to link iconv.lib 
-  * wich can be found in /dep aginst the game project
+  * To enale this future the *#DEFINE USE_UTF8* must be uncommented in _IRCClient.h_
+  * you will also need to link iconv.lib wich can be found in /dep aginst the game project
