@@ -19,8 +19,7 @@ void IRCLog::WriteLog(const char *what, ...)
     va_start(ap, what);
     vsnprintf(tmpoutp, 1024, what, ap );
     va_end(ap);
-
-    ircLogfile << sLog.GetTimestampStr().c_str() << " : " << tmpoutp << "\n";
+    ircLogfile << tmpoutp;
+    ircLogfile << "\n";
     ircLogfile.flush();
-
 }

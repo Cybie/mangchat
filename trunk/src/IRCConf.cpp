@@ -20,6 +20,9 @@ bool IRCClient::LoadConfig()
     sIRC._defchan = sConfig.GetStringDefault("irc.defchan", "lobby");
     sIRC._ldefc = sConfig.GetIntDefault("irc.ldef", 0);
     sIRC._wct = sConfig.GetIntDefault("irc.wct", 30000);
+   	sIRC.ajoin = sConfig.GetIntDefault("irc.ajoin", 1);
+    sIRC.ajchan = sConfig.GetStringDefault("irc.ajchan", "world");
+    sIRC.onlrslt = sConfig.GetIntDefault("irc.online.result", 10);
     sIRC.BOTMASK = sConfig.GetIntDefault("Botmask", 0);
     for(int i = 1; i < MAX_CONF_CHANNELS;i++)
     {

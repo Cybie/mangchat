@@ -202,11 +202,11 @@ void IRCClient::Handle_WoW_Channel(std::string Channel, Player *plr, int nAction
                 switch(plr->GetSession()->GetSecurity())    //switch case to determine what rank the "gm" is
                 {
                     case 0: GMRank = "";break;
-                    case 1: GMRank = sIRC.ojGM1;break;
-                    case 2: GMRank = sIRC.ojGM2;break;
-                    case 3: GMRank = sIRC.ojGM3;break;
-                    case 4: GMRank = sIRC.ojGM4;break;
-                    case 5: GMRank = sIRC.ojGM5;break;
+                    case 1: GMRank = "\0039" + sIRC.ojGM1;break;
+                    case 2: GMRank = "\0039" + sIRC.ojGM2;break;
+                    case 3: GMRank = "\0039" + sIRC.ojGM3;break;
+                    case 4: GMRank = "\0039" + sIRC.ojGM4;break;
+                    case 5: GMRank = "\0039" + sIRC.ojGM5;break;
                 }
             }
             std::string ChatTag = "";
@@ -220,12 +220,12 @@ void IRCClient::Handle_WoW_Channel(std::string Channel, Player *plr, int nAction
             switch(nAction)
             {
                 case CHANNEL_JOIN:
-                    Send_IRC_Channel(GetIRCChannel(Channel), ChatTag + MakeMsg(MakeMsg(MakeMsg(GetChatLine(JOIN_WOW), "$Name", plr->GetName()), "$Channel", Channel), "$GM", GMRank));
+                    Send_IRC_Channel(GetIRCChannel(Channel), MakeMsg(MakeMsg(MakeMsg(GetChatLine(JOIN_WOW), "$Name", ChatTag + plr->GetName()), "$Channel", Channel), "$GM", GMRank));
                     WorldDatabase.PExecute(lchan.c_str(), plr->GetGUID());
                     WorldDatabase.PExecute(query.c_str(), plr->GetGUID());
                     break;
                 case CHANNEL_LEAVE:
-                    Send_IRC_Channel(GetIRCChannel(Channel), ChatTag + MakeMsg(MakeMsg(MakeMsg(GetChatLine(LEAVE_WOW), "$Name", plr->GetName()), "$Channel", Channel), "$GM", GMRank));
+                    Send_IRC_Channel(GetIRCChannel(Channel), MakeMsg(MakeMsg(MakeMsg(GetChatLine(LEAVE_WOW), "$Name", ChatTag + plr->GetName()), "$Channel", Channel), "$GM", GMRank));
                     WorldDatabase.PExecute(lchan.c_str(), plr->GetGUID());
                     break;
             }
@@ -402,15 +402,7 @@ void IRCClient::AutoJoinChannel(Player *plr)
     }
     plr->GetSession()->SendPacket(&data);
 }
-
-/*
-void ConvertCToT(TCHAR* pszDest, const CHAR* pszSrc)
-{
-	for(int i = 0; i < strlen(pszSrc); i++)
-		pszDest[i] = (TCHAR) pszSrc[i];
-}
-*/
-
+#ifdef USE_UTF8
 bool IRCClient::ConvertUTF8(const char *chat, std::string &converted_utf)
 {
     // extern void error();
@@ -457,3 +449,4 @@ bool IRCClient::ConvertUTF8(const char *chat, std::string &converted_utf)
     else
         return false;
 }
+#endif

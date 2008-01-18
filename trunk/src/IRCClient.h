@@ -5,8 +5,10 @@
 #include "../Player.h"
 #include "MCGame.h"
 #include "IRCLog.h"
+
+#ifdef USE_UTF8
 #include "iconv.h"
-#include "libcharset.h"
+#endif
 
 //Uncomment this to enable UTF-8 conversion
 //#define USE_UTF8
@@ -141,7 +143,11 @@ class IRCClient : public ZThread::Runnable
         std::string _irc_chan[MAX_CONF_CHANNELS];
         // Game Channel list
         std::string _wow_chan[MAX_CONF_CHANNELS];
-
+        // AutoJoin Options
+		int ajoin;
+		string ajchan;
+		// Online Command Max Results
+		int onlrslt;
         // Channel OnJoin/Restart/Kick Messages
         string  JoinMsg;
         string  RstMsg;

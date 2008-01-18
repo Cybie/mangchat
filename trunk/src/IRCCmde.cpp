@@ -12,7 +12,7 @@
 #include "../Config/ConfigEnv.h"
 
 #define Send_Player(p, m)           sIRC.Send_WoW_Player(p, m)
-#define Send_IRC(c, m, b)       sIRC.Send_IRC_Channel(c, m, b)
+#define Send_IRC(c, m, b)           sIRC.Send_IRC_Channel(c, m, b)
 #define Send_IRCA(c, m, b, t)       sIRC.Send_IRC_Channel(c, m, b, t)
 
 #ifdef WIN32
@@ -23,18 +23,8 @@
 void IRCCmd::Handle_Login(_CDATA *CD)
 {
     std::string* _PARAMS = getArray(CD->PARAMS, 2);
-
-    /*
-    if(_client *cl = GetClient(CD->USER))
-    {
-        cl->Name;
-        cl->GMLevel;
-    }
-    */
-    
     if(!IsLoggedIn(CD->USER))
     {
-
         QueryResult *result = loginDatabase.PQuery("SELECT `gmlevel` FROM `account` WHERE `username`='%s' AND `I`=SHA1(CONCAT(UPPER(`username`),':',UPPER('%s')));", _PARAMS[0].c_str(), _PARAMS[1].c_str());
         if (result)
         {
@@ -42,7 +32,6 @@ void IRCCmd::Handle_Login(_CDATA *CD)
             int GMLevel = fields[0].GetInt16();
             if(GMLevel >= 0)
             {
-
                 _client *NewClient = new _client();
 
                 NewClient->Name     = CD->USER;
@@ -57,40 +46,6 @@ void IRCCmd::Handle_Login(_CDATA *CD)
     }
     else
         Send_IRC(CD->USER, " \0034[ERROR] : You Are Already Logged In As "+ _PARAMS[0] +"!", true);
-
-    /*
-    if(!IsLoggedIn(CD->USER))
-    {
-        QueryResult *result = loginDatabase.PQuery("SELECT `gmlevel` FROM `account` WHERE `username`='%s' AND `I`=SHA1(CONCAT(UPPER(`username`),':',UPPER('%s')));", _PARAMS[0].c_str(), _PARAMS[1].c_str());
-        if (result)
-        {
-            Field *fields = result->Fetch();
-            int GMLevel = fields[0].GetInt16();
-            if(GMLevel >= 0)
-            {
-                for(int i = 0;i < MAX_CLIENTS;i++)
-                {
-                    if(!CLIENTS[i].LoggedIn)
-                    {
-                        CLIENTS[i].LoggedIn = true;
-                        CLIENTS[i].Name     = CD->USER;
-                        CLIENTS[i].UName    = _PARAMS[0];
-                        CLIENTS[i].GMLevel  = fields[0].GetInt16();
-                        Send_IRC(ChanOrPM(CD), MakeMsg("You Are Now Logged In As %s, Welcome To MangChat Admin Mode.", _PARAMS[0].c_str()), true);
-                        break;
-                    }
-                }
-            }
-            else
-            Send_IRC(ChanOrPM(CD), " 4[ERROR] : Access Denied!", true);
-            delete result;
-        }
-        else
-        Send_IRC(ChanOrPM(CD), " 4[ERROR] : Login Failed!", true);
-    }
-    else
-    Send_IRC(CD->USER, " 4[ERROR] : You Are Already Logged In As "+ _PARAMS[0] +"!", true);
-    */
 }
 
 void IRCCmd::Handle_Logout(_CDATA *CD)
@@ -100,34 +55,12 @@ void IRCCmd::Handle_Logout(_CDATA *CD)
         if((*i)->Name == CD->USER)
         {
             _CLIENTS.erase(i);
-            //_CLIENTS.remove(*i);
             delete (*i);
             Send_IRC(CD->USER, "You Are Now Logged Out!", true);
             return;
         }
     }
     Send_IRC(CD->USER, " \0034[ERROR] : You Are Not Logged In!", true);
-
-    /*
-    if(IsLoggedIn(CD->USER))
-    {
-        for(int i = 0;i < MAX_CLIENTS;i++)
-        {
-            if((CLIENTS[i].LoggedIn) && (CLIENTS[i].Name == CD->USER))
-            {
-                CLIENTS[i].GMLevel = -1;
-                CLIENTS[i].Name = "-";
-                CLIENTS[i].LoggedIn = false;
-                Send_IRC(CD->USER, "You Are Now Logged Out!", true);
-                break;
-            }
-        }
-    }
-    else
-    {
-        Send_IRC(CD->USER, " 4[ERROR] : You Are Not Logged In!", true);
-    }
-    */
 }
 
 void IRCCmd::Fun_Player(_CDATA *CD)
@@ -393,10 +326,10 @@ void IRCCmd::Item_Player(_CDATA *CD)
                         countForStore-= countForStack;
                     }
                     else
-                        break;                              // not possible with correct work
+                        break;
                 }
                 else
-                    break;                                  // not possible with correct work
+                    break;
             }
             else
                 break;
@@ -495,11 +428,10 @@ void IRCCmd::Kill_Player(_CDATA *CD)
     {
         if(plr->isAlive())
         {
-            plr->DealDamage(plr, plr->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_NORMAL, NULL, 0, false);
+            plr->DealDamage(plr, plr->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_NORMAL, NULL, false);
             plr->SaveToDB();
             if(_PARAMS[1] == "")
                 _PARAMS[1] = "No Reason Given.";
-
             Send_IRC(ChanOrPM(CD), MakeMsg(" \00313[%s] : Has Been Killed By: %s.", _PARAMS[0].c_str(), CD->USER.c_str()) +  +  + " Reason: "+_PARAMS[1]+".", true);
             Send_Player(plr, MakeMsg("You Have Been Killed By: %s. Reason: %s.", CD->USER.c_str(), _PARAMS[1].c_str()));
         }
@@ -513,11 +445,11 @@ void IRCCmd::Kill_Player(_CDATA *CD)
 void IRCCmd::Level_Player(_CDATA *CD)
 {
     std::string* _PARAMS = getArray(CD->PARAMS, CD->PCOUNT);
-    
-    normalizePlayerName(_PARAMS[0]);
-
-    uint64 guid = GetPlayer(_PARAMS[0].c_str())->GetGUID();
-    uint8 i_newlvl = atoi(_PARAMS[1].c_str());
+    std::string player  = _PARAMS[0];
+    normalizePlayerName(player);
+    uint64 guid = objmgr.GetPlayerGUIDByName(player.c_str());
+    std::string s_newlevel  = _PARAMS[1];
+    uint8 i_newlvl = atoi(s_newlevel.c_str());
     if(!guid)
     {
         Send_IRCA(CD->USER, " \0034[ERROR] : Player Not Found!", true, MSG_NOTICE);
@@ -677,7 +609,6 @@ void IRCCmd::Mute_Player(_CDATA *CD)
 }
 
 #include "MCS_OnlinePlayers.h"
-
 void IRCCmd::Online_Players(_CDATA *CD)
 {
     if(!sIRC.Script_Lock[MCS_Players_Online])
@@ -685,45 +616,6 @@ void IRCCmd::Online_Players(_CDATA *CD)
         sIRC.Script_Lock[MCS_Players_Online] = true;
         ZThread::Thread script(new mcs_OnlinePlayers(CD));
     }
-
-    /*
-    int OnlineCount = 0;
-    std::string IRCOut = "";
-    HashMapHolder<Player>::MapType& m = ObjectAccessor::Instance().GetPlayers();
-    for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
-    {
-        if (itr->second && itr->second->GetSession()->GetPlayer() && itr->second->GetSession()->GetPlayer()->IsInWorld())
-        {
-            OnlineCount++;
-            Player *plr = itr->second->GetSession()->GetPlayer();
-            std::string ChatTag = " ";
-
-            if(plr->isAFK())
-                ChatTag.append("7<AFK>");
-            if(plr->isDND())
-                ChatTag.append("7<DND>");
-            if(itr->second->GetSession()->GetSecurity() > sConfig.GetIntDefault("OnlineGM", 2))
-                ChatTag.append("9<GM>");
-            if(itr->second->GetSession()->GetSecurity() > 0)
-                ChatTag.append("");
-
-            switch (plr->GetTeam())
-            {
-                case 67:ChatTag.append("4");break; //horde
-                case 469:ChatTag.append("12");break; //alliance
-            }
-            IRCOut.append(MakeMsg("%s%s(%d)", ChatTag.c_str(), plr->GetName(), plr->getLevel()));
-
-            if(OnlineCount % 10 == 0)
-            {
-                Send_IRC(ChanOrPM(CD), MakeMsg(" %s", IRCOut.c_str()), true);
-                IRCOut = "";
-            }
-        }
-    }
-    // Remainder in IRCOUT && Total plyersonline
-    Send_IRC(ChanOrPM(CD), MakeMsg(" %s Players Online(%d)", IRCOut.c_str(), OnlineCount), true);
-    */
 }
 
 void IRCCmd::Player_Info(_CDATA *CD)
@@ -1008,8 +900,6 @@ void IRCCmd::Tele_Player(_CDATA *CD)
         }
         else if(_PARAMS[1] == "to")
         {
-            // why is this here guid can be obtained from plr2 object
-            //uint64 guid = objmgr.GetPlayerGUIDByName(_PARAMS[2]);
             if(Player* plr2 = GetPlayer(_PARAMS[2]))
             {
                 Player::LoadPositionFromDB(mapid,pX,pY,pZ,pO, plr2->GetGUID());
@@ -1045,21 +935,10 @@ void IRCCmd::Tele_Player(_CDATA *CD)
 void IRCCmd::Who_Logged(_CDATA *CD)
 {
     std::string OPS = "";
-
     for(std::list<_client*>::iterator i=_CLIENTS.begin(); i!=_CLIENTS.end();i++)
     {
         OPS.append(MakeMsg(" \002[GM:%d IRC: %s - WoW: %s]\002 ", (*i)->GMLevel, (*i)->Name.c_str(), (*i)->UName.c_str()));
     }
-
-    /*
-    for(int i = 0;i < MAX_CLIENTS;i++)
-    {
-        if(CLIENTS[i].LoggedIn)
-        {
-            OPS.append(MakeMsg(" [GM:%d IRC: %s - WoW: %s] ", CLIENTS[i].GMLevel, CLIENTS[i].Name.c_str() ,CLIENTS[i].UName.c_str()));
-        }
-    }
-    */
     Send_IRC(ChanOrPM(CD), OPS, true);
 }
 
@@ -1100,16 +979,16 @@ void *Buff_Script( void *ptr )
             sIRC.ZBUFF_NPC,
             plr->GetTeam())) { delete pCreature; }
             else
-        {
+			{
             Delay(500);
             pCreature->SaveToDB();
-                                                            // To call _LoadGoods(); _LoadQuests(); CreateTrainerSpells();
+			// To call _LoadGoods(); _LoadQuests(); CreateTrainerSpells();
             pCreature->LoadFromDB(pCreature->GetGUIDLow(), plr->GetInstanceId());
             plr->SetMovement(MOVE_ROOT);
             plr->PlaySound(S_ENTERWORLD ,true);
             MapManager::Instance().GetMap(pCreature->GetMapId(), pCreature)->Add(pCreature);
             Delay(500);
-            pCreature->Say("Hello i am Cybrax, i am here to enhance your abilities", LANG_UNIVERSAL, plr->GetGUID());
+            pCreature->Say("Hello I Am Cybrax, I Am Here To Enhance Your Abilities.", LANG_UNIVERSAL, plr->GetGUID());
             Delay(2000);
             pCreature->CastSpell(plr, sSpellStore.LookupEntry( sIRC.ZBUFF_ANIM ), true);
             Delay(2000);
@@ -1159,7 +1038,7 @@ void *Buff_Script( void *ptr )
                 }
             }
             Delay(2000);
-            pCreature->Say("I Must Bid You Farewell Now.", LANG_UNIVERSAL, plr->GetGUID());
+            pCreature->Say("I Have Done All I Can Do For You, Good Bye!", LANG_UNIVERSAL, plr->GetGUID());
             Delay(1000);
             plr->SetMovement(MOVE_UNROOT);
             plr->PlaySound(S_STEALTH ,true);
