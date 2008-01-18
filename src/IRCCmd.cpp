@@ -451,7 +451,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
 
         if(cValid)
         {
-            sIRC.iLog.WriteLog("%s used command %s with parameters %s", CDATA.USER.c_str(), CDATA.CMD.c_str(), CDATA.PARAMS.c_str());
+            sIRC.iLog.WriteLog("[%s] : %s Used Command: %s With Parameters: %s", sLog.GetTimestampStr().c_str(), CDATA.USER.c_str(), CDATA.CMD.c_str(), CDATA.PARAMS.c_str());
         }
         return cValid;
     }
