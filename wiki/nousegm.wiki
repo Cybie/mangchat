@@ -1,8 +1,8 @@
-#summary One-sentence summary of this page.
+#summary (No Use GM) Patch For Project MaNGOS
 
 = Summary =
 
-The nousegm.patch Or (No Use GM) Is A Simple Patch Created Out Of Annoyance, This Will Make It So That Anyone With Tele Powers Cannot Use Them On Someone Else With A Higher GM Level.
+The nousegm.patch Is A Simple Patch Created Out Of Annoyance, This Will Make It So That Anyone With Tele Powers Cannot Use Them On Someone Else With A Higher GM Level.
 
 
 = Download Page =
