@@ -1,0 +1,12 @@
+#summary One-sentence summary of this page.
+
+= Summary =
+
+The nousegm.patch Or (No Use GM) Is A Simple Patch Created Out Of Annoyance, This Will Make It So That Anyone With Tele Powers Cannot Use Them On Someone Else With A Higher GM Level.
+
+
+= Download Page =
+
+[http://mangchat.googlecode.com/files/nousegm.patch]
+
+http://code.google.com/p/mangchat/downloads/list
