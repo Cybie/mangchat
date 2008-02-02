@@ -1,7 +1,7 @@
 #include "MCGame.h"
 #include "IRCClient.h"
 
-#define GAME_CHANNEL "cybrax"
+#define GAME_CHANNEL sIRC._irc_chan[0]
 
 MC_Game::MC_Game()
 {

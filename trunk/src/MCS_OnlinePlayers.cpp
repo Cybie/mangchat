@@ -15,7 +15,6 @@ mcs_OnlinePlayers::mcs_OnlinePlayers(_CDATA *_CD)
     CD->PARAMS = _CD->PARAMS;
     CD->PCOUNT = _CD->PCOUNT;
     CD->USER = _CD->USER;
-
 }
 
 mcs_OnlinePlayers::~mcs_OnlinePlayers()
@@ -39,11 +38,11 @@ void mcs_OnlinePlayers::run()
             switch(plr->GetSession()->GetSecurity())
             {
                   case 0: ChatTag.append("");break;
-                  case 1: ChatTag.append(sIRC.ojGM1+"\017");break;
-                  case 2: ChatTag.append(sIRC.ojGM2+"\017");break;
-                  case 3: ChatTag.append(sIRC.ojGM3+"\017");break;
-                  case 4: ChatTag.append(sIRC.ojGM4+"\017");break;
-                  case 5: ChatTag.append(sIRC.ojGM5+"\017");break;
+                  case 1: ChatTag.append("\0037"+sIRC.ojGM1);break;
+                  case 2: ChatTag.append("\0037"+sIRC.ojGM2);break;
+                  case 3: ChatTag.append("\0037"+sIRC.ojGM3);break;
+                  case 4: ChatTag.append("\0037"+sIRC.ojGM4);break;
+                  case 5: ChatTag.append("\0037"+sIRC.ojGM5);break;
             }
             if(plr->isAFK())
                 ChatTag.append("\002\0037<AFK>\003\002");

@@ -169,7 +169,9 @@ void IRCClient::Handle_IRC(std::string sData)
                     // if our name is not in it, it means we receieved chat on one of the channels
                     // magchat is in. the first thing we do is check if it is a command or not
                     if(!Command.IsValid(szUser, FROM, CHAT))
-                        Send_WoW_Channel(GetWoWChannel(FROM).c_str(), IRCcol2WoW(MakeMsg(MakeMsg(GetChatLine(IRC_WOW), "$Name", szUser), "$Msg", CHAT)));
+					{
+						Send_WoW_Channel(GetWoWChannel(FROM).c_str(), IRCcol2WoW(MakeMsg(MakeMsg(GetChatLine(IRC_WOW), "$Name", szUser), "$Msg", CHAT)));
+					}
                     // if we indeed receieved a command we do not want to display this to the players
                     // so only incanse the isvalid command returns false it will be sent to all player.
                     // the isvalid function will automaitcly process the command on true.
@@ -202,11 +204,11 @@ void IRCClient::Handle_WoW_Channel(std::string Channel, Player *plr, int nAction
                 switch(plr->GetSession()->GetSecurity())    //switch case to determine what rank the "gm" is
                 {
                     case 0: GMRank = "";break;
-                    case 1: GMRank = "\0039" + sIRC.ojGM1;break;
-                    case 2: GMRank = "\0039" + sIRC.ojGM2;break;
-                    case 3: GMRank = "\0039" + sIRC.ojGM3;break;
-                    case 4: GMRank = "\0039" + sIRC.ojGM4;break;
-                    case 5: GMRank = "\0039" + sIRC.ojGM5;break;
+                    case 1: GMRank = "\0037"+sIRC.ojGM1;break;
+                    case 2: GMRank = "\0037"+sIRC.ojGM2;break;
+                    case 3: GMRank = "\0037"+sIRC.ojGM3;break;
+                    case 4: GMRank = "\0037"+sIRC.ojGM4;break;
+                    case 5: GMRank = "\0037"+sIRC.ojGM5;break;
                 }
             }
             std::string ChatTag = "";
@@ -339,7 +341,7 @@ void IRCClient::Send_WoW_Channel(const char *channel, std::string chat)
                     data << channel;
                     data << (uint64)0;
                     data << (uint32) (strlen(chat.c_str()) + 1);
-                    data << chat.c_str();
+                    data << IRCcol2WoW(chat.c_str());
                     data << (uint8)0;
                     itr->second->GetSession()->SendPacket(&data);
                 }
@@ -381,8 +383,8 @@ void IRCClient::ResetIRC()
 // this function should be called on player login Player::AddToWorld
 void IRCClient::AutoJoinChannel(Player *plr)
 {
-    //this will work if at least 1 player is logged in regrdless if he is on the channel ir not
-    // the first person that login empty server is the one with bad luck and wont be invivted, 
+    //this will work if at least 1 player is logged in regrdless if he is on the channel or not
+    // the first person that login empty server is the one with bad luck and wont be invited, 
     // if at least 1 player is online the player will be inited to the chanel
 
     std::string m_name = "world";

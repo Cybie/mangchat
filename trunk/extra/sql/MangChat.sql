@@ -13,6 +13,7 @@ CREATE TABLE `IRC_Commands` (
 -- ----------------------------
 -- Records 
 -- ----------------------------
+INSERT INTO `IRC_Commands` VALUES ('acct', '[acct <Player> <(un)lock/rename>] : Perform Action To <Player> Account.', '3');
 INSERT INTO `IRC_Commands` VALUES ('fun', '[fun <Player> <Sound/Say>] : Do Selected Fun Action To <Player>.', '3');
 INSERT INTO `IRC_Commands` VALUES ('help', '[help Command] : Use No Paramaters For List Of Available Commands.', '0');
 INSERT INTO `IRC_Commands` VALUES ('info', '[info] : Display Server Info. (Number Of Players Online/Max Since Last Restart/Uptime)', '0');

@@ -158,8 +158,11 @@ class IRCClient : public ZThread::Runnable
         string  ojGM3;
         string  ojGM4;
         string  ojGM5;
-        // IRC Commands Security Level
-        int     CFUN;
+        int     games;
+		int     gmlog;
+		// IRC Commands Security Level
+        int     CACCT;
+		int     CFUN;
         int     CHELP;
         int     CITEM;
         int     CJAIL;
