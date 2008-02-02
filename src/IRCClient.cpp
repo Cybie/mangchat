@@ -27,7 +27,7 @@ INSTANTIATE_SINGLETON_1( IRCClient );
 IRCClient::IRCClient()
 {
     for(int i = 0;i > 5;i++)
-        Script_Lock[i] = false;
+        sIRC.Script_Lock[i] = false;
 
 }
 

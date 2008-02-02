@@ -54,7 +54,9 @@ bool IRCClient::LoadConfig()
     sIRC._autojoinkick = sConfig.GetIntDefault("irc.autojoin_kick", 1);
     sIRC._cmd_prefx = sConfig.GetStringDefault("irc.command_prefix", ".");
     // Misc Options
-    sIRC.BOTMASK   = sConfig.GetIntDefault("BotMask", 0);
+    sIRC.games = sConfig.GetIntDefault("irc.fun.games", 0);
+	sIRC.gmlog = sConfig.GetIntDefault("irc.gmlog", 1);
+	sIRC.BOTMASK   = sConfig.GetIntDefault("BotMask", 0);
     sIRC.ojGM1 = sConfig.GetStringDefault("irc.gm1", "[Moderator]");
     sIRC.ojGM2 = sConfig.GetStringDefault("irc.gm2", "[Game Master]");
     sIRC.ojGM3 = sConfig.GetStringDefault("irc.gm3", "[BugTracker]");
@@ -69,7 +71,8 @@ bool IRCClient::LoadConfig()
         {
             std::string command = fields[0].GetCppString();
             uint32 gmlvl = fields[1].GetUInt32();
-            if(command == "fun") sIRC.CFUN = gmlvl;
+            if(command == "acct") sIRC.CFUN = gmlvl;
+			if(command == "fun") sIRC.CFUN = gmlvl;
             if(command == "item") sIRC.CITEM = gmlvl;
             if(command == "jail") sIRC.CJAIL = gmlvl;
             if(command == "kick") sIRC.CKICK = gmlvl;
@@ -94,7 +97,8 @@ bool IRCClient::LoadConfig()
     }
     else
     {
-        sIRC.CFUN      = 3;
+        sIRC.CACCT     = 3;
+		sIRC.CFUN      = 3;
         sIRC.CITEM     = 3;
         sIRC.CJAIL     = 3;
         sIRC.CKICK     = 3;
