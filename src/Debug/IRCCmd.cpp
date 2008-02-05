@@ -1,6 +1,7 @@
 #include "IRCCmd.h"
 #include "IRCClient.h"
 #include "Database/DatabaseEnv.h"
+#include "../ObjectMgr.h"
 // Constructor
 IRCCmd::IRCCmd(){}
 // Destructor
@@ -18,16 +19,14 @@ int IRCCmd::ParamsValid(_CDATA *CD, int pCnt, int rLev)
     //CD->PCOUNT = pCnt;
     if(!CanUse(CD->USER, rLev))
         return E_AUTH;
-    if(pCnt == 0)
+    else if(pCnt == 0)
         return E_OK;
-    if(CD->PARAMS.size() == 0)
+    else if(CD->PARAMS.size() == 0)
         return E_SIZE;
-    if(!ValidParams(CD->PARAMS, pCnt))
+    else if(!ValidParams(CD->PARAMS, pCnt))
         return E_IVALID;
     return E_OK;
 }
-
-
 
 // This function checks if chat from irc is a command or not
 // return true on yes and false on no
@@ -39,24 +38,27 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
         _CDATA CDATA;
         bool cValid    = false;
         bool AuthValid = true;
-        std::string* _PARAMS = getArray(CHAT, 2);
+        bool dontlog   = true;
+		std::string* _PARAMS = getArray(CHAT, 2);
         CDATA.USER      = USER;
         CDATA.FROM      = FROM;
         CDATA.PCOUNT    = 0;
         CDATA.CMD       = _PARAMS[0].substr(1, _PARAMS[0].size() - 1);
-        CDATA.PARAMS            = _PARAMS[1];
+        CDATA.PARAMS    = _PARAMS[1];   
         if(CDATA.CMD == "login")
         {
             if(FROM == sIRC._Nick)
-            {
-                if(ParamsValid(&CDATA, 2))
-                    Handle_Login(&CDATA);
-                else
+            {             
+				if(ParamsValid(&CDATA, 2))  
+					Handle_Login(&CDATA);
+				else
                     sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"login <Player> <Password> )", true);
             }
             else
                 sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Please Send A PM To Login!", true, MSG_NOTICE);
-            cValid = true;
+            if(GetLevel(USER) >= sIRC.gmlog)
+                dontlog = false;
+			cValid = true;
         }
         else if(CDATA.CMD == "logout")
         {
@@ -68,7 +70,23 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
                 sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Please Send A PM To Logout!", true, MSG_NOTICE);
             cValid = true;
         }
-        else if(CDATA.CMD == "fun")
+        else if(CDATA.CMD == "acct")
+        {
+            switch(ParamsValid(&CDATA, 2, sIRC.CACCT))
+            {
+                case E_OK:
+                    Account_Player(&CDATA);
+                    break;
+                case E_SIZE:
+                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"acct <Player> </> )", true, MSG_NOTICE);
+                    break;
+                case E_AUTH:
+                    AuthValid = false;
+                    break;
+            }
+            cValid = true;
+        }
+		else if(CDATA.CMD == "fun")
         {
             switch(ParamsValid(&CDATA, 2, sIRC.CFUN))
             {
@@ -395,23 +413,8 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             }
             cValid = true;
         }
-        else if(CDATA.CMD == "startgame")
+        else if(CDATA.CMD == "startgame" && sIRC.games == 1)
         {
-            /*
-            switch(ParamsValid(&CDATA, 1, sIRC.CZBUFF))
-            {
-                case E_OK:
-                    Zbuff_Player(&CDATA);
-                    break;
-                case E_SIZE:
-                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"zbuff <Player> )", true, MSG_NOTICE);
-                    break;
-                case E_AUTH:
-                    AuthValid = false;
-                    break;
-            }
-            */
-
             //if(!sIRC.Script_Lock[MCS_Poker_Game])
             //{
                 sIRC.Script_Lock[MCS_Poker_Game] = true;
@@ -420,17 +423,12 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             //}
             cValid = true;
         }
-
-        else if(CDATA.CMD == "joingame")
+        else if(CDATA.CMD == "joingame" && sIRC.games == 1)
         {
-
             for(std::list<gPlayer*>::iterator i=sIRC.GamePlayers.begin(); i!=sIRC.GamePlayers.end();i++)
                 if((*i)->name == CDATA.USER)
                     break;
-
-
             std::string* _PARAMS = getArray(CDATA.PARAMS, 3);
-
             
             gPlayer *NewPlayer = new gPlayer();
 
@@ -440,13 +438,15 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             NewPlayer->cBet = 1000;
 
             sIRC.GamePlayers.push_back(NewPlayer);
-        
         }
-
         if(!AuthValid && IsLoggedIn(USER))
             sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Access Denied! Your Security Level Is Too Low To Use This Command!", true, MSG_NOTICE);
         if(cValid == false && (sIRC.BOTMASK & 4) != 0)
             sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Unknown Command!", true, MSG_NOTICE);
+        if(cValid && dontlog)
+        {
+			sIRC.iLog.WriteLog("[ %s ] : [ %s(%d) ] Used Command: [ %s ] With Parameters: [ %s ]", sLog.GetTimestampStr().c_str(), CDATA.USER.c_str(), GetLevel(USER), CDATA.CMD.c_str(), CDATA.PARAMS.c_str());
+        }
         return cValid;
     }
     return false;
@@ -499,16 +499,6 @@ bool IRCCmd::IsLoggedIn(std::string USER)
             return true;
     }
     return false;
-
-    /*
-    for(int i = 0;i < MAX_CLIENTS;i++)
-    {
-        if((CLIENTS[i].LoggedIn) && (CLIENTS[i].Name == USER))
-        {
-            return true;
-        }
-    }
-    */
 }
 
 int IRCCmd::GetLevel(std::string sName)
@@ -518,16 +508,17 @@ int IRCCmd::GetLevel(std::string sName)
         if((*i)->Name == sName)
             return (*i)->GMLevel;
     }
-    /*
-    for(int i = 0;i < MAX_CLIENTS;i++)
-    {
-        if(CLIENTS[i].Name == sName)
-        {
-            return CLIENTS[i].GMLevel;
-        }
-    }
-    */
     return 0;
+}
+
+int IRCCmd::AcctLevel(std::string plnme)
+{
+	uint64 guid = objmgr.GetPlayerGUIDByName(plnme);
+	uint32 account_id = 0;
+	uint32 security = 0;
+	account_id = objmgr.GetPlayerAccountIdByGUID(guid);
+	security = objmgr.GetSecurityByAccount(account_id);
+	return security;
 }
 
 std::string IRCCmd::GetAccName(std::string sName)
@@ -537,15 +528,6 @@ std::string IRCCmd::GetAccName(std::string sName)
         if((*i)->Name == sName)
             return (*i)->UName;
     }
-    /*
-    for(int i = 0;i < MAX_CLIENTS;i++)
-    {
-        if(CLIENTS[i].Name == sName)
-        {
-            return CLIENTS[i].UName;
-        }
-    }
-    */
     return "";
 }
 

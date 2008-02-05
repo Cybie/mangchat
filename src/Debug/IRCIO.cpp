@@ -169,7 +169,9 @@ void IRCClient::Handle_IRC(std::string sData)
                     // if our name is not in it, it means we receieved chat on one of the channels
                     // magchat is in. the first thing we do is check if it is a command or not
                     if(!Command.IsValid(szUser, FROM, CHAT))
-                        Send_WoW_Channel(GetWoWChannel(FROM).c_str(), IRCcol2WoW(MakeMsg(MakeMsg(GetChatLine(IRC_WOW), "$Name", szUser), "$Msg", CHAT)));
+					{
+						Send_WoW_Channel(GetWoWChannel(FROM).c_str(), IRCcol2WoW(MakeMsg(MakeMsg(GetChatLine(IRC_WOW), "$Name", szUser), "$Msg", CHAT)));
+					}
                     // if we indeed receieved a command we do not want to display this to the players
                     // so only incanse the isvalid command returns false it will be sent to all player.
                     // the isvalid function will automaitcly process the command on true.
@@ -202,11 +204,11 @@ void IRCClient::Handle_WoW_Channel(std::string Channel, Player *plr, int nAction
                 switch(plr->GetSession()->GetSecurity())    //switch case to determine what rank the "gm" is
                 {
                     case 0: GMRank = "";break;
-                    case 1: GMRank = sIRC.ojGM1;break;
-                    case 2: GMRank = sIRC.ojGM2;break;
-                    case 3: GMRank = sIRC.ojGM3;break;
-                    case 4: GMRank = sIRC.ojGM4;break;
-                    case 5: GMRank = sIRC.ojGM5;break;
+                    case 1: GMRank = "\0037"+sIRC.ojGM1;break;
+                    case 2: GMRank = "\0037"+sIRC.ojGM2;break;
+                    case 3: GMRank = "\0037"+sIRC.ojGM3;break;
+                    case 4: GMRank = "\0037"+sIRC.ojGM4;break;
+                    case 5: GMRank = "\0037"+sIRC.ojGM5;break;
                 }
             }
             std::string ChatTag = "";
@@ -220,12 +222,12 @@ void IRCClient::Handle_WoW_Channel(std::string Channel, Player *plr, int nAction
             switch(nAction)
             {
                 case CHANNEL_JOIN:
-                    Send_IRC_Channel(GetIRCChannel(Channel), ChatTag + MakeMsg(MakeMsg(MakeMsg(GetChatLine(JOIN_WOW), "$Name", plr->GetName()), "$Channel", Channel), "$GM", GMRank));
+                    Send_IRC_Channel(GetIRCChannel(Channel), MakeMsg(MakeMsg(MakeMsg(GetChatLine(JOIN_WOW), "$Name", ChatTag + plr->GetName()), "$Channel", Channel), "$GM", GMRank));
                     WorldDatabase.PExecute(lchan.c_str(), plr->GetGUID());
                     WorldDatabase.PExecute(query.c_str(), plr->GetGUID());
                     break;
                 case CHANNEL_LEAVE:
-                    Send_IRC_Channel(GetIRCChannel(Channel), ChatTag + MakeMsg(MakeMsg(MakeMsg(GetChatLine(LEAVE_WOW), "$Name", plr->GetName()), "$Channel", Channel), "$GM", GMRank));
+                    Send_IRC_Channel(GetIRCChannel(Channel), MakeMsg(MakeMsg(MakeMsg(GetChatLine(LEAVE_WOW), "$Name", ChatTag + plr->GetName()), "$Channel", Channel), "$GM", GMRank));
                     WorldDatabase.PExecute(lchan.c_str(), plr->GetGUID());
                     break;
             }
@@ -238,16 +240,14 @@ void IRCClient::Handle_WoW_Channel(std::string Channel, Player *plr, int nAction
 // set the NoPrefix to true
 void IRCClient::Send_IRC_Channel(std::string sChannel, std::string sMsg, bool NoPrefix, int nType)
 {
-	// Creates the string that recives if all works
-	std::string sMsg2 = sMsg;
 
-	// This does the thing !!
-	if(Converter("char", "UTF-8", sMsg2.c_str(), sMsg2)) sMsg=sMsg2;
-	
-	// Just to check that it works !!
-	sLog.outString("Debug [%s]", sMsg.c_str());
+    #ifdef USE_UTF8
+        std::string sMsg2 = sMsg;
+    	if(ConvertUTF8("char", "UTF-8", sMsg2.c_str(), sMsg2))
+            sMsg = sMsg2;
+    #endif
 
-	std::string mType = "PRIVMSG";
+    std::string mType = "PRIVMSG";
     switch(nType)
     {
         case MSG_NOTICE:
@@ -274,11 +274,8 @@ void IRCClient::Send_IRC_Channel(std::string sChannel, std::string sMsg, bool No
 // that mangchat has in its configuration
 void IRCClient::Send_IRC_Channels(std::string sMsg)
 {
-
-	for(int i=1;i < sIRC._chan_count + 1;i++)
-    {
-		Send_IRC_Channel(sIRC._irc_chan[i], sMsg);
-    }
+    for(int i=1;i < sIRC._chan_count + 1;i++)
+        Send_IRC_Channel(sIRC._irc_chan[i], sMsg);
 }
 
 // This function is called in ChatHandler.cpp, any channel chat from wow will come
@@ -287,18 +284,14 @@ void IRCClient::Send_WoW_IRC(Player *plr, std::string Channel, std::string Msg)
 {
     // Check if the channel exist in our configuration
     if(Channel_Valid(Channel))
-    {
         Send_IRC_Channel(GetIRCChannel(Channel), MakeMsgP(WOW_IRC, Msg, plr));
-    }
 }
 
 void IRCClient::Send_WoW_Player(std::string sPlayer, std::string sMsg)
 {
     normalizePlayerName(sPlayer);
     if (Player* plr = ObjectAccessor::Instance().FindPlayerByName(sPlayer.c_str()))
-    {
         Send_WoW_Player(plr, sMsg);
-    }
 }
 
 void IRCClient::Send_WoW_Player(Player *plr, string sMsg)
@@ -319,63 +312,18 @@ void IRCClient::Send_WoW_Player(Player *plr, string sMsg)
 // on the given channel ingame. (previuosly found in world.cpp)
 // it loops thru all sessions and checks if they are on the channel
 // if so construct a packet and send it.
-
-bool IRCClient::Converter(const char* tocode, const char* fromcode, const char *chat, std::string &converted_utf) {
-// extern void error();
-iconv_t cd;
-cd	= iconv_open(tocode, fromcode);
-if (cd != (iconv_t) -1) {
-	// Yes whe now can convert chars into UTF-8
-
-	size_t size_orig = strlen(chat);
-	size_t size_new = (size_t) 2040;
-
-	char just_test[2048] = "";
-	char *chat_converted = just_test;
-	size_t size_converted;
-
-	// Lets convert from Chars to UTF-8
-	size_converted = iconv(cd, &chat, &size_orig, &chat_converted, &size_new);
-	
-	// If its converted right lets send it back
-	if(size_converted != -1) {
-		// Yes it was converted right and we can safley return the chars to bee sent into the Wow channel
-		converted_utf = just_test;
-	} else {
-		// Debug ínfo of something goes wrong. A good thing to have when testing right now
-		printf("Couldent convert the chars ??\nError will follow -> ");
-		int error_number = errno;
-		printf("[%i]\n",error_number);
-		if(error_number == EINVAL) printf("Input conversion stopped due to an incomplete character or shift sequence at the end of the input buffer.\n");
-		if(error_number == EILSEQ) printf("Input conversion stopped due to an input byte that does not belong to the input codeset.\n");
-		if(error_number == E2BIG)  printf("Input conversion stopped due to lack of space in the output buffer. inbytesleft has the number of bytes to be converted.\n");
-		return false;
-	}	
-
-	// Lets turn of the convert string. This will be moved later for better support
-	iconv_close(cd);
-	return true;
-	} else {
-		printf("Coulden even start to Convert HMM (MAJOR ERROR)!! ?? !!\n");
-		return false;
-	}
-};
-
 void IRCClient::Send_WoW_Channel(const char *channel, std::string chat)
 {
-	if(!(strlen(channel) > 0))
+    if(!(strlen(channel) > 0))
         return;
-	
-	// Creates the string that recives if all works
-	std::string chat2 = chat;
 
-	// This does the thing !!
-	if(Converter("UTF-8", "char", chat2.c_str(), chat2)) chat=chat2;
-	
-	// Just to check that it works !!
-	sLog.outString("Debug [%s]", chat.c_str());
-	
-	HashMapHolder<Player>::MapType& m = ObjectAccessor::Instance().GetPlayers();
+    #ifdef USE_UTF8
+        std::string chat2 = chat;
+        if(ConvertUTF8("UTF-8", "char", chat2.c_str(), chat2))
+            chat = chat2;
+    #endif
+
+    HashMapHolder<Player>::MapType& m = ObjectAccessor::Instance().GetPlayers();
     for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
     {
         if (itr->second && itr->second->GetSession()->GetPlayer() && itr->second->GetSession()->GetPlayer()->IsInWorld())
@@ -393,7 +341,7 @@ void IRCClient::Send_WoW_Channel(const char *channel, std::string chat)
                     data << channel;
                     data << (uint64)0;
                     data << (uint32) (strlen(chat.c_str()) + 1);
-                    data << chat.c_str();
+                    data << IRCcol2WoW(chat.c_str());
                     data << (uint8)0;
                     itr->second->GetSession()->SendPacket(&data);
                 }
@@ -432,19 +380,20 @@ void IRCClient::ResetIRC()
 
 #define CHAT_INVITE_NOTICE 0x18
 
-// this function should be called on player login
-void AutoJoinChannel(Player *plr)
+// this function should be called on player login Player::AddToWorld
+void IRCClient::AutoJoinChannel(Player *plr)
 {
+    //this will work if at least 1 player is logged in regrdless if he is on the channel or not
+    // the first person that login empty server is the one with bad luck and wont be invited, 
+    // if at least 1 player is online the player will be inited to the chanel
+
     std::string m_name = "world";
     WorldPacket data;
     data.Initialize(SMSG_CHANNEL_NOTIFY, 1+m_name.size()+1);
     data << uint8(CHAT_INVITE_NOTICE);
     data << m_name.c_str();
-    // send guid 0 (experimental)
-    data << uint64(0);
-    // have a random guid invite the player
-    // if the above fails
-    /*
+
+    HashMapHolder<Player>::MapType& m = ObjectAccessor::Instance().GetPlayers();
     for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
     {
         if (itr->second && itr->second->GetSession()->GetPlayer() && itr->second->GetSession()->GetPlayer()->IsInWorld())
@@ -453,57 +402,53 @@ void AutoJoinChannel(Player *plr)
             break;
         }
     }
-    */
-    // if even that fails
-    // check for a player on the channel already
-    /*
-    for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
+    plr->GetSession()->SendPacket(&data);
+}
+#ifdef USE_UTF8
+bool IRCClient::ConvertUTF8(const char* tocode, const char* fromcode, const char *chat, std::string &converted_utf)
+{
+    // extern void error();
+    iconv_t cd = iconv_open(tocode, fromcode);
+    if (cd != (iconv_t) -1)
     {
-        if (itr->second && itr->second->GetSession()->GetPlayer() && itr->second->GetSession()->GetPlayer()->IsInWorld())
+        size_t size_orig = strlen(chat);
+        size_t size_new = 2040;
+
+        char just_test[2048] = "";
+        char *chat_converted = just_test;
+
+        size_t size_converted = iconv(cd, &chat, &size_orig, &chat_converted, &size_new);
+	
+        if(size_converted != -1)
+		    converted_utf = just_test;
+        else
         {
-            if(ChannelMgr* cMgr = channelMgr(itr->second->GetSession()->GetPlayer()->GetTeam()))
+            int retval = errno;
+            sLog.outError("ICONV Conversion error %d", retval);
+    	    iconv_close(cd);
+
+            switch(retval)
             {
-                if(Channel *chn = cMgr->GetChannel(m_name, itr->second->GetSession()->GetPlayer()))
+            case EINVAL:
                 {
-                    data << uint64(itr->second->GetGUID());
-                    break;
+                //Input conversion stopped due to an incomplete character or shift sequence at the end of the input buffer.
+    	    	return false;
+                }
+            case EILSEQ:
+                {
+                //Input conversion stopped due to an input byte that does not belong to the input codeset
+    	    	return false;
+                }
+            case E2BIG:
+                {
+                //Input conversion stopped due to lack of space in the output buffer. inbytesleft has the number of bytes to be converted.
+                return false;
                 }
             }
-        }
-    }
-    */
-    // for all these events the channel needs to exist
-    // thus a player already has tobe on it
-    // in future upgrade mangchat should create the channel on startup
-    // and have a permanent "bot" invite the players and "control" the channel
-    plr->GetSession()->SendPacket(&data);
-
-    //send invitation
-    // the code below was written by tase
-    /*
-    uint32 accountID = 1;  //the account id of the bot
-    uint64 guid = 2;  //the guid of the bot
-
-    WorldSession session(accountID, NULL, 0, true, 0, LOCALE_ENG);
-    Player bot(&session);                                      //create the bot
-
-    if(bot.MinimalLoadFromDB(NULL, guid))                      //did the bot load properly ?
-    {
-        ObjectAccessor::Instance().AddObject(&bot);           //add bot to the world
-
-        if(ChannelMgr* bot_cMgr = channelMgr(HORDE))          //can we get the channel manager ?
-            if(Channel* bot_chn = bot_cMgr->GetChannel("world", &bot))//can we get the channel ?
-                bot_chn->Join(guid,"");                          //add bot to channel
-
-        if(ChannelMgr* cMgr = channelMgr(this->GetTeam()))      //can we get the channel manager ?
-            if(Channel *chn = cMgr->GetChannel("world", this))//can we get the channel ?
-                chn->Invite(guid, GetName());              //send invitation
-
-        ObjectAccessor::Instance().RemoveObject(&bot);        //remove from world
-        m_invite = 30000;
+	    }	
+        return true;
     }
     else
-        sLog.outError("Bot not loaded properly from db");
-    */
-
+        return false;
 }
+#endif

@@ -4,9 +4,16 @@
 #include "Policies/Singleton.h"
 #include "../Player.h"
 #include "MCGame.h"
+#include "IRCLog.h"
+
+//Uncomment this to enable UTF-8 conversion
+#define USE_UTF8
+
+#ifdef USE_UTF8
 #include "iconv.h"
-#include "libcharset.h"
-	  
+#endif
+
+
 using namespace std;
 // The maximum ammount of channels used
 // in the channel array you can have as much channels as you
@@ -16,7 +23,6 @@ using namespace std;
 #define MAX_CHAT_LINES 10
 // time we need to wait before we try another connecton attempt
 // Default is 30 seconds
-#define WAIT_CONNECT_TIME sIRC._wct
 #define MAX_SCRIPT_INST 10
 // CLINES is used for the default chatlines
 // By using the GetChatLine function its easier and faster
@@ -83,11 +89,7 @@ class IRCClient : public ZThread::Runnable
         void    Send_IRC_Channel(std::string sChannel, std::string sMsg, bool NoPrefix = false, int nType = MSG_PRIV);
         // Sends a message to all IRC Channels
         void    Send_IRC_Channels(std::string sMsg);
-		
-		// Converter for diffrent charset !!
-		bool Converter(const char* tocode, const char* fromcode, const char *chat, std::string &converted_utf = std::string(""));
-
-		std::string MakeMsg(std::string msg, std::string var, std::string val)
+        std::string MakeMsg(std::string msg, std::string var, std::string val)
         {
             std::size_t start = msg.find(var);
             if (start != std::string::npos)
@@ -100,9 +102,9 @@ class IRCClient : public ZThread::Runnable
         // This function is called in Channel.cpp and processes Join/leave messages
         void    Handle_WoW_Channel(std::string Channel, Player *plr, int nAction);
         void ResetIRC();
-
     public:
         void AutoJoinChannel(Player *plr);
+		bool ConvertUTF8(const char* tocode, const char* fromcode, const char *chat, std::string &converted_utf);
 
     public:
         bool Script_Lock[5];
@@ -142,7 +144,11 @@ class IRCClient : public ZThread::Runnable
         std::string _irc_chan[MAX_CONF_CHANNELS];
         // Game Channel list
         std::string _wow_chan[MAX_CONF_CHANNELS];
-
+        // AutoJoin Options
+		int ajoin;
+		string ajchan;
+		// Online Command Max Results
+		int onlrslt;
         // Channel OnJoin/Restart/Kick Messages
         string  JoinMsg;
         string  RstMsg;
@@ -153,8 +159,11 @@ class IRCClient : public ZThread::Runnable
         string  ojGM3;
         string  ojGM4;
         string  ojGM5;
-        // IRC Commands Security Level
-        int     CFUN;
+        int     games;
+		int     gmlog;
+		// IRC Commands Security Level
+        int     CACCT;
+		int     CFUN;
         int     CHELP;
         int     CITEM;
         int     CJAIL;
@@ -202,6 +211,8 @@ class IRCClient : public ZThread::Runnable
 
         int _Max_Script_Inst;
         // MAX_SCRIPT_INST
+
+        IRCLog iLog;
 
 public:
     std::list<gPlayer*> GamePlayers;

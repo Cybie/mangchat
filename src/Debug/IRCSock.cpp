@@ -1,6 +1,17 @@
 #include "IRCClient.h"
 #define MAXDATASIZE 512
 #include <fcntl.h>
+
+#include <stdio.h>
+#include <sys/types.h>
+
+
+#define _UNICODE
+
+#ifdef _MBCS
+#undef _MBCS
+#endif
+
 bool IRCClient::InitSock()
 {
     #ifdef _WIN32
@@ -101,13 +112,6 @@ void IRCClient::Disconnect()
         #endif
     }
 }
-int convertStringToChar(string& str, char** data)
-{
-*data = (char*)malloc(str.length() * sizeof(char));
-memset((void*)*data,0,sizeof(*data));
-strcpy(*data,str.c_str());
-return 0;
-}
 
 void IRCClient::SockRecv()
 {
@@ -116,6 +120,7 @@ void IRCClient::SockRecv()
     char szBuffer[MAXDATASIZE];
 
     memset(szBuffer, 0, MAXDATASIZE );
+    
     int nBytesRecv = ::recv(sIRC.SOCKET, szBuffer, MAXDATASIZE - 1, 0 );
     if ( nBytesRecv == -1 )
     {
@@ -134,8 +139,7 @@ void IRCClient::SockRecv()
             std::istringstream iss(szBuffer);
             while(getline(iss, reply))
             {
-
-				Handle_IRC(reply);
+                Handle_IRC(reply);
             }
         }
     }
