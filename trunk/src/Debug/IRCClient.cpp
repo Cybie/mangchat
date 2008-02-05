@@ -1,60 +1,61 @@
 /*
- * MangChat v1.0 By Cybrax (VisualDreams)
+ * MangChat By Cybrax (VisualDreams)
  *
- * This Program Is Free Software; You Can Redistribute It And/Or Modify
- * It Under The Terms Of The GNU General Public License
- * Written and Developed by Cybrax. cybrax_vd@hotmail.com
+ * This Program Is Free Software; You Can Redistribute It And/Or Modify It Under The Terms Of The GNU General Public License
+ * Written and Developed by Cybrax. cybraxvd@gmail.com
  * |Death| <death@hell360.net>, Lice <lice@yeuxverts.net>, Dj_baby & Sanaell, Tase
  * With Help And Support From The MaNGOS Project Community.
  * PLEASE RETAIN THE COPYRIGHT OF THE AUTHORS.
  */
+
 #include "IRCClient.h"
 #include "Log.h"
 #include "../World.h"
 #include "../ObjectMgr.h"
 #include "../MapManager.h"
 
-// Added for multiple charset support !!
-// #include <locale.h>
-
 #include "Policies/SingletonImp.h"
 INSTANTIATE_SINGLETON_1( IRCClient );
+
 #ifdef WIN32
-#define Delay(x) Sleep(x)
+    #define Delay(x) Sleep(x)
 #else
-#define Delay(x) sleep(x / 1000)
+    #define Delay(x) sleep(x / 1000)
 #endif
+
 // IRCClient Constructor
 IRCClient::IRCClient()
 {
     for(int i = 0;i > 5;i++)
-        Script_Lock[i] = false;
+        sIRC.Script_Lock[i] = false;
 
 }
 
 // IRCClient Destructor
 IRCClient::~IRCClient(){}
-// ZThread Entry
-// This function is called when the thread is created in Master.cpp (mangosd)
+
+// ZThread Entry This function is called when the thread is created in Master.cpp (mangosd)
 void IRCClient::run()
 {
-//	char * collate = setlocale(LC_COLLATE, "swedish");
-//    char * ctype = setlocale(LC_CTYPE, "English");
-    // char * ctype = setlocale(LC_CTYPE, "en_ca.UTF-8");
-    // before we begin we wait a few seconds
+    sIRC.iLog.WriteLog("[%s] : ****** MaNGOS With MangChat Has Been Started ******", sLog.GetTimestampStr().c_str());
+
+    // future task 
+    #ifdef USE_UTF8
+	setlocale(LC_CTYPE, "en_ca.UTF-8");
+    #endif
+
+    // before we begin we wait a few 
     // mangos is still starting up and max screw
     // up the console text
-    Delay(1500);
+    ZThread::Thread::sleep(500);
     sLog.outString("\n%s\n%s\n%s\n%s\n%s\n",
         "***************************************",
         "#    MANGCHAT Threaded IRC CLient     #",
         "#     With enhanched GM Control.      #",
         "***************************************",
-        "***** MangChat: Version 1.0.0.0 *******");
+        "***** MangChat: Version 1.3.0.0 *******");
     // Initialize connection count 0
-//	sLog.outString("supported language (LC_COLLATE) = %s", collate);
-//	sLog.outString("supported language (LC_CTYPE)   = %s", ctype);
-	int cCount = 0;
+    int cCount = 0;
     // Clean Up MySQL Tables
     sLog.outString("*** MangChat: Cleaning Up Inchan Table*");
     WorldDatabase.PExecute("DELETE FROM `IRC_Inchan`");
@@ -69,7 +70,7 @@ void IRCClient::run()
         if(this->InitSock())
         {
             // Connect To The IRC Server
-            sLog.outString("*** MangChat: Connection Try # %d ******", cCount);
+            sLog.outString("*** MangChat: Connecting to %s Try # %d ******", sIRC._Host.c_str(), cCount);
             if(this->Connect(sIRC._Host.c_str(), sIRC._Port))
             {
                 // On connection success reset the connection counter
@@ -93,7 +94,7 @@ void IRCClient::run()
                 sIRC.Active = false;
             // If we need to reattempt a connection wait WAIT_CONNECT_TIME milli seconds before we try again
             if(sIRC.Active)
-                ZThread::Thread::sleep(WAIT_CONNECT_TIME);
+                ZThread::Thread::sleep(sIRC._wct);
             //Delay(WAIT_CONNECT_TIME);
         }
         else

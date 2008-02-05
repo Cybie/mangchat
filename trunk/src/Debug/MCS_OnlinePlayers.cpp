@@ -15,7 +15,6 @@ mcs_OnlinePlayers::mcs_OnlinePlayers(_CDATA *_CD)
     CD->PARAMS = _CD->PARAMS;
     CD->PCOUNT = _CD->PCOUNT;
     CD->USER = _CD->USER;
-
 }
 
 mcs_OnlinePlayers::~mcs_OnlinePlayers()
@@ -26,7 +25,6 @@ mcs_OnlinePlayers::~mcs_OnlinePlayers()
 
 void mcs_OnlinePlayers::run()
 {
-
     int OnlineCount = 0;
     std::string IRCOut = "";
     HashMapHolder<Player>::MapType& m = ObjectAccessor::Instance().GetPlayers();
@@ -37,18 +35,19 @@ void mcs_OnlinePlayers::run()
             OnlineCount++;
             Player *plr = itr->second->GetSession()->GetPlayer();
             std::string ChatTag = " ";
-
-            if(itr->second->GetSession()->GetSecurity() > sConfig.GetIntDefault("OnlineGM", 2))
-                ChatTag.append("\002\0039<GM>\003\002");
-
+            switch(plr->GetSession()->GetSecurity())
+            {
+                  case 0: ChatTag.append("");break;
+                  case 1: ChatTag.append("\0037"+sIRC.ojGM1);break;
+                  case 2: ChatTag.append("\0037"+sIRC.ojGM2);break;
+                  case 3: ChatTag.append("\0037"+sIRC.ojGM3);break;
+                  case 4: ChatTag.append("\0037"+sIRC.ojGM4);break;
+                  case 5: ChatTag.append("\0037"+sIRC.ojGM5);break;
+            }
             if(plr->isAFK())
                 ChatTag.append("\002\0037<AFK>\003\002");
             else if(plr->isDND())
                 ChatTag.append("\002\0037<DND>\003\002");
-
-            if(itr->second->GetSession()->GetSecurity() > 0)
-            	ChatTag.append("");
-
             switch (plr->GetTeam())
             {
                 case 67:ChatTag.append("\0034");break;      //horde
@@ -57,9 +56,9 @@ void mcs_OnlinePlayers::run()
 
             IRCOut.append(IRCCmd::MakeMsg("%s\002%s\003\017\002(%d)\002\017", ChatTag.c_str(), plr->GetName(), plr->getLevel()));
 
-            // after 10 players have been added to the string 
-            // output to irc and reset for the next 10
-            if(OnlineCount % 10 == 0)
+            // after XX players have been added to the string
+            // output to irc and reset for the next XX
+            if(OnlineCount % sIRC.onlrslt == 0)
             {
                 sIRC.Send_IRC_Channel(IRCCmd::ChanOrPM(CD), IRCCmd::MakeMsg("\002 %s", IRCOut.c_str()), true);
                 IRCOut = "";
@@ -68,7 +67,7 @@ void mcs_OnlinePlayers::run()
         }
     }
     // Remainder in IRCOUT && Total plyersonline
-    sIRC.Send_IRC_Channel(IRCCmd::ChanOrPM(CD), IRCCmd::MakeMsg("\002 %s \002Players Online(%d)", IRCOut.c_str(), OnlineCount), true);
+    sIRC.Send_IRC_Channel(IRCCmd::ChanOrPM(CD), IRCCmd::MakeMsg("\002Players Online(%d):\017 %s", OnlineCount, IRCOut.c_str()), true);
 
     sIRC.Script_Lock[MCS_Players_Online] = false;
 }

@@ -1,7 +1,7 @@
 #include "MCGame.h"
 #include "IRCClient.h"
 
-#define GAME_CHANNEL "cybrax"
+#define GAME_CHANNEL sIRC._irc_chan[0]
 
 MC_Game::MC_Game()
 {
@@ -30,27 +30,7 @@ MC_Game::~MC_Game()
 {
 
 
-    // delete Card allocated by new
-    for(std::list<PlayCard*>::iterator i=GameDeck.begin(); i!=GameDeck.end();i++)
-        delete (*i);
 
-    // delete pointers from deck
-    for(std::list<PlayCard*>::iterator i=Dealer.begin(); i!=Dealer.end();i++)
-        delete (*i);
-
-    // delete players allocated by new ands card moved from deck
-    for(std::list<gPlayer*>::iterator i=sIRC.GamePlayers.begin(); i!=sIRC.GamePlayers.end();i++)
-    {
-        delete (*i)->Card1;
-        delete (*i)->Card2;
-        delete (*i);
-    }
-
-    // Clear playerlist
-    sIRC.GamePlayers.clear();
-
-    // Relese game
-    sIRC.Script_Lock[MCS_Poker_Game] = false;
 }
 
 void MC_Game::run()
@@ -151,6 +131,30 @@ void MC_Game::PokerGame()
     {
       //  CheckHand(Dealer, (*i)->Card1, (*i)->Card1);
     }
+
+
+    // delete Card allocated by new
+    for(std::list<PlayCard*>::iterator i=GameDeck.begin(); i!=GameDeck.end();i++)
+        delete (*i);
+
+
+
+    // delete players allocated by new ands card moved from deck
+    for(std::list<gPlayer*>::iterator i=sIRC.GamePlayers.begin(); i!=sIRC.GamePlayers.end();i++)
+    {
+        delete (*i)->Card1;
+        delete (*i)->Card2;
+        delete (*i);
+    }
+    // delete pointers from deck
+    for(std::list<PlayCard*>::iterator i=Dealer.begin(); i!=Dealer.end();i++)
+        delete (*i);
+    // Clear playerlist
+    sIRC.GamePlayers.clear();
+
+    // Relese game
+    sIRC.Script_Lock[MCS_Poker_Game] = false;
+
 }
 
 
@@ -180,7 +184,6 @@ void MC_Game::CheckHand(PlayCard *Card1, PlayCard *Card2)
     bool swapped = false;
     do
     {
-        // 1 pass of the bubble sort
         swapped = false;
         for(int i=0; i<4; i++)
         {

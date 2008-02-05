@@ -1,5 +1,6 @@
 #ifndef _IRC_CMD_H
 #define _IRC_CMD_H
+
 #define MAX_CLIENTS 50
 #include "Common.h"
 #include "../Player.h"
@@ -63,8 +64,10 @@ class IRCCmd
         void    Handle_Login(_CDATA *CD);
         void    Online_Players(_CDATA *CD);
         int GetLevel(std::string sName);
+		int AcctLevel(std::string plnme);
         // InGame Commands
-        void    Fun_Player(_CDATA *CD);
+        void    Account_Player(_CDATA *CD);
+		void    Fun_Player(_CDATA *CD);
         void    Help_IRC(_CDATA *CD);
         void    Item_Player(_CDATA *CD);
         void    Inchan_Server(_CDATA *CD);

@@ -12,8 +12,9 @@
 #include "../Config/ConfigEnv.h"
 
 #define Send_Player(p, m)           sIRC.Send_WoW_Player(p, m)
-#define Send_IRC(c, m, b)       sIRC.Send_IRC_Channel(c, m, b)
+#define Send_IRC(c, m, b)           sIRC.Send_IRC_Channel(c, m, b)
 #define Send_IRCA(c, m, b, t)       sIRC.Send_IRC_Channel(c, m, b, t)
+
 #ifdef WIN32
 #define Delay(x) Sleep(x)
 #else
@@ -22,18 +23,8 @@
 void IRCCmd::Handle_Login(_CDATA *CD)
 {
     std::string* _PARAMS = getArray(CD->PARAMS, 2);
-
-    /*
-    if(_client *cl = GetClient(CD->USER))
-    {
-        cl->Name;
-        cl->GMLevel;
-    }
-    */
-    
     if(!IsLoggedIn(CD->USER))
     {
-
         QueryResult *result = loginDatabase.PQuery("SELECT `gmlevel` FROM `account` WHERE `username`='%s' AND `I`=SHA1(CONCAT(UPPER(`username`),':',UPPER('%s')));", _PARAMS[0].c_str(), _PARAMS[1].c_str());
         if (result)
         {
@@ -41,7 +32,6 @@ void IRCCmd::Handle_Login(_CDATA *CD)
             int GMLevel = fields[0].GetInt16();
             if(GMLevel >= 0)
             {
-
                 _client *NewClient = new _client();
 
                 NewClient->Name     = CD->USER;
@@ -56,40 +46,6 @@ void IRCCmd::Handle_Login(_CDATA *CD)
     }
     else
         Send_IRC(CD->USER, " \0034[ERROR] : You Are Already Logged In As "+ _PARAMS[0] +"!", true);
-
-    /*
-    if(!IsLoggedIn(CD->USER))
-    {
-        QueryResult *result = loginDatabase.PQuery("SELECT `gmlevel` FROM `account` WHERE `username`='%s' AND `I`=SHA1(CONCAT(UPPER(`username`),':',UPPER('%s')));", _PARAMS[0].c_str(), _PARAMS[1].c_str());
-        if (result)
-        {
-            Field *fields = result->Fetch();
-            int GMLevel = fields[0].GetInt16();
-            if(GMLevel >= 0)
-            {
-                for(int i = 0;i < MAX_CLIENTS;i++)
-                {
-                    if(!CLIENTS[i].LoggedIn)
-                    {
-                        CLIENTS[i].LoggedIn = true;
-                        CLIENTS[i].Name     = CD->USER;
-                        CLIENTS[i].UName    = _PARAMS[0];
-                        CLIENTS[i].GMLevel  = fields[0].GetInt16();
-                        Send_IRC(ChanOrPM(CD), MakeMsg("You Are Now Logged In As %s, Welcome To MangChat Admin Mode.", _PARAMS[0].c_str()), true);
-                        break;
-                    }
-                }
-            }
-            else
-            Send_IRC(ChanOrPM(CD), " 4[ERROR] : Access Denied!", true);
-            delete result;
-        }
-        else
-        Send_IRC(ChanOrPM(CD), " 4[ERROR] : Login Failed!", true);
-    }
-    else
-    Send_IRC(CD->USER, " 4[ERROR] : You Are Already Logged In As "+ _PARAMS[0] +"!", true);
-    */
 }
 
 void IRCCmd::Handle_Logout(_CDATA *CD)
@@ -99,49 +55,74 @@ void IRCCmd::Handle_Logout(_CDATA *CD)
         if((*i)->Name == CD->USER)
         {
             _CLIENTS.erase(i);
-            //_CLIENTS.remove(*i);
             delete (*i);
             Send_IRC(CD->USER, "You Are Now Logged Out!", true);
             return;
         }
     }
     Send_IRC(CD->USER, " \0034[ERROR] : You Are Not Logged In!", true);
-
-    /*
-    if(IsLoggedIn(CD->USER))
-    {
-        for(int i = 0;i < MAX_CLIENTS;i++)
-        {
-            if((CLIENTS[i].LoggedIn) && (CLIENTS[i].Name == CD->USER))
-            {
-                CLIENTS[i].GMLevel = -1;
-                CLIENTS[i].Name = "-";
-                CLIENTS[i].LoggedIn = false;
-                Send_IRC(CD->USER, "You Are Now Logged Out!", true);
-                break;
-            }
-        }
-    }
-    else
-    {
-        Send_IRC(CD->USER, " 4[ERROR] : You Are Not Logged In!", true);
-    }
-    */
 }
-
+void IRCCmd::Account_Player(_CDATA *CD)
+{
+    std::string* _PARAMS = getArray(CD->PARAMS, 3);
+    if(AcctLevel(_PARAMS[0]) > GetLevel(CD->USER) && (sIRC.BOTMASK & 512)!= 0)
+    {
+        Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Nice Try, This Player Has A Higher GM Level Than You! [ %i ]", AcctLevel(_PARAMS[0])), true, MSG_NOTICE);
+	    return;
+    }     	
+	normalizePlayerName(_PARAMS[0]);
+	uint64 guid = objmgr.GetPlayerGUIDByName(_PARAMS[0]);
+	uint32 account_id = 0;
+	account_id = objmgr.GetPlayerAccountIdByGUID(guid);
+	if(account_id)
+	{
+		Player* plr = objmgr.GetPlayer(guid);
+		if(_PARAMS[1] == "lock")
+		{
+			loginDatabase.PExecute( "UPDATE `account` SET `locked` = '1' WHERE `id` = '%d'",account_id);
+			if(plr) Send_Player(plr, MakeMsg("Your Account Has Been Locked To Your Current IP By: %s", CD->USER.c_str()));
+			Send_IRC(ChanOrPM(CD), " \00313["+_PARAMS[0]+"] : Account Has Been Locked To Their Current IP Address.",true);
+		}
+		else if(_PARAMS[1] == "unlock")
+		{
+            loginDatabase.PExecute( "UPDATE `account` SET `locked` = '0' WHERE `id` = '%d'",account_id);
+			if(plr) Send_Player(plr, MakeMsg("Your Account Has Been UnLocked From The Associated IP By: %s", CD->USER.c_str()));
+			Send_IRC(ChanOrPM(CD), " \00313["+_PARAMS[0]+"] : Account Has Been UnLocked From The Associated IP Address.",true);
+		}
+		else if(_PARAMS[1] == "rename")
+		{
+			if(plr)
+			{
+				plr->SetAtLoginFlag(AT_LOGIN_RENAME);
+				Send_Player(plr, MakeMsg("%s Has Requested You Change This Characters Name, Rename Will Be Forced On Next Login!", CD->USER.c_str()));
+			}
+			CharacterDatabase.PExecute("UPDATE `character` SET `at_login` = `at_login` | '1' WHERE `guid` = '%u'", guid);
+			Send_IRC(ChanOrPM(CD), " \00313["+_PARAMS[0]+"] : Has Been Forced To Change Their Characters Name, Rename Will Be Forced On Next Login!",true);
+		}
+	}
+	else
+		Send_IRCA(CD->USER, " \0034[ERROR] : No Such Player Exists, So Account Cannot Be Looked Up!", true, MSG_NOTICE);
+}
 void IRCCmd::Fun_Player(_CDATA *CD)
 {
     std::string* _PARAMS = getArray(CD->PARAMS, 3);
-    if (Player* plr = GetPlayer(_PARAMS[0]))
+    if(AcctLevel(_PARAMS[0]) > GetLevel(CD->USER) && (sIRC.BOTMASK & 512)!= 0)
     {
-        if(_PARAMS[1] == "say")
+        Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Nice Try, This Player Has A Higher GM Level Than You! [ %i ]", AcctLevel(_PARAMS[0])), true, MSG_NOTICE);
+	    return;
+    }         
+	if (Player* plr = GetPlayer(_PARAMS[0]))
+    {
+		if(_PARAMS[1] == "say")
         {
             plr->Say(_PARAMS[2], LANG_UNIVERSAL);
+			Send_IRC(ChanOrPM(CD), " \00313["+_PARAMS[0]+"] : Was Forced To Say: "+_PARAMS[2]+".",true);
         }
         if(_PARAMS[1] == "sound")
         {
             uint32 sndid = atoi(_PARAMS[2].c_str());
             plr->PlaySound(sndid ,true);
+			Send_IRC(ChanOrPM(CD), " \00313["+_PARAMS[0]+"] : Has Just Heard Sound ID: "+_PARAMS[2]+".",true);
         }
     }
     else
@@ -276,10 +257,10 @@ void IRCCmd::Info_Server(_CDATA *CD)
 void IRCCmd::Item_Player(_CDATA *CD)
 {
     std::string* _PARAMS = getArray(CD->PARAMS, 3);
-    std::string player  = _PARAMS[0];
-    normalizePlayerName(player);
-    uint64 guid = objmgr.GetPlayerGUIDByName(player.c_str());
-    Player *chr = objmgr.GetPlayer(guid);
+
+    
+    normalizePlayerName(_PARAMS[0]);
+    Player *chr = GetPlayer(_PARAMS[0].c_str());
     if(_PARAMS[1] == "add")
     {
         std::string s_param  = _PARAMS[2];
@@ -392,10 +373,10 @@ void IRCCmd::Item_Player(_CDATA *CD)
                         countForStore-= countForStack;
                     }
                     else
-                        break;                              // not possible with correct work
+                        break;
                 }
                 else
-                    break;                                  // not possible with correct work
+                    break;
             }
             else
                 break;
@@ -409,7 +390,7 @@ void IRCCmd::Item_Player(_CDATA *CD)
             {
                 dbitemname = (char*)result->Fetch()->GetString();
             }
-            std::string iinfo = " \00313[" +player+ "] : Has Been Given Item "+dbitemname+". From: "+CD->USER.c_str()+".";
+            std::string iinfo = " \00313[" + _PARAMS[0] + "] : Has Been Given Item "+dbitemname+". From: "+CD->USER.c_str()+".";
             Send_IRC(ChanOrPM(CD), iinfo, true);
             delete result;
         }
@@ -417,7 +398,7 @@ void IRCCmd::Item_Player(_CDATA *CD)
         {
             char s_countForStore[255];
             sprintf(s_countForStore,"%d",countForStore);
-            std::string ierror = " \00313["+player+"] : Could Not Create All Items! " +s_countForStore+ " Item(s) Were Not Created!";
+            std::string ierror = " \00313["+ _PARAMS[0] +"] : Could Not Create All Items! " +s_countForStore+ " Item(s) Were Not Created!";
             Send_IRC(ChanOrPM(CD), ierror, true);
         }
     }
@@ -428,19 +409,24 @@ void IRCCmd::Jail_Player(_CDATA *CD)
     if(ValidParams(CD->PARAMS, 1))
     {
         std::string* _PARAMS = getArray(CD->PARAMS, 2);
-        if (Player* plr = GetPlayer(_PARAMS[0]))
+        if(AcctLevel(_PARAMS[0]) > GetLevel(CD->USER) && (sIRC.BOTMASK & 512)!= 0)
         {
-            uint64 guid = objmgr.GetPlayerGUIDByName(_PARAMS[0]);
-            std::string sReason = "";
+            Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Nice Try, This Player Has A Higher GM Level Than You! [ %i ]", AcctLevel(_PARAMS[0])), true, MSG_NOTICE);
+	        return;
+        }             
+		if (Player *plr = GetPlayer(_PARAMS[0]))
+        { 
+			std::string sReason = "";
             if(_PARAMS[1] == "release")
             {
-                float rmapid, rposx, rposy, rposz, rposo = 0;
-                CharacterDatabase.escape_string(_PARAMS[0]);
-                QueryResult *result = CharacterDatabase.PQuery( "SELECT `map`, `position_x`, `position_y`, `position_z` FROM `character_homebind` WHERE `guid` = '" I64FMTD "'", (uint64)guid );
+                float rposx, rposy, rposz, rposo = 0;
+                uint32 rmapid = 0;
+				CharacterDatabase.escape_string(_PARAMS[0]);
+                QueryResult *result = CharacterDatabase.PQuery( "SELECT `map`, `position_x`, `position_y`, `position_z` FROM `character_homebind` WHERE `guid` = '" I64FMTD "'", plr->GetGUID() );
                 if(result)
                 {
                     Field *fields = result->Fetch();
-                    rmapid = fields[0].GetFloat();
+                    rmapid = fields[0].GetUInt16();
                     rposx = fields[1].GetFloat();
                     rposy = fields[2].GetFloat();
                     rposz = fields[3].GetFloat();
@@ -477,11 +463,16 @@ void IRCCmd::Jail_Player(_CDATA *CD)
 void IRCCmd::Kick_Player(_CDATA *CD)
 {
     std::string* _PARAMS = getArray(CD->PARAMS, CD->PCOUNT);
-    if(_PARAMS[1] == "")
+    if(AcctLevel(_PARAMS[0]) > GetLevel(CD->USER) && (sIRC.BOTMASK & 512)!= 0)
+    {
+        Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Nice Try, This Player Has A Higher GM Level Than You! [ %i ]", AcctLevel(_PARAMS[0])), true, MSG_NOTICE);
+	    return;
+    }     
+	if(_PARAMS[1] == "")
         _PARAMS[1] = "No Reason Given.";
     if (Player* plr = GetPlayer(_PARAMS[0]))
     {
-        plr->GetSession()->KickPlayer();
+		plr->GetSession()->KickPlayer();
         Send_IRC(ChanOrPM(CD), " \00313["+_PARAMS[0]+"] : Has Been Kicked By: "+CD->USER+". Reason: "+_PARAMS[1]+".", true);
     }
     else
@@ -491,15 +482,19 @@ void IRCCmd::Kick_Player(_CDATA *CD)
 void IRCCmd::Kill_Player(_CDATA *CD)
 {
     std::string* _PARAMS = getArray(CD->PARAMS, CD->PCOUNT);
-    if (Player* plr = GetPlayer(_PARAMS[0]))
+    if(AcctLevel(_PARAMS[0]) > GetLevel(CD->USER) && (sIRC.BOTMASK & 512)!= 0)
     {
-        if(plr->isAlive())
+        Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Nice Try, This Player Has A Higher GM Level Than You! [ %i ]", AcctLevel(_PARAMS[0])), true, MSG_NOTICE);
+	    return;
+    }         
+	if (Player* plr = GetPlayer(_PARAMS[0]))
+    {
+		if(plr->isAlive())
         {
-            plr->DealDamage(plr, plr->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_NORMAL, NULL, 0, false);
+            plr->DealDamage(plr, plr->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_NORMAL, NULL, false);
             plr->SaveToDB();
             if(_PARAMS[1] == "")
                 _PARAMS[1] = "No Reason Given.";
-
             Send_IRC(ChanOrPM(CD), MakeMsg(" \00313[%s] : Has Been Killed By: %s.", _PARAMS[0].c_str(), CD->USER.c_str()) +  +  + " Reason: "+_PARAMS[1]+".", true);
             Send_Player(plr, MakeMsg("You Have Been Killed By: %s. Reason: %s.", CD->USER.c_str(), _PARAMS[1].c_str()));
         }
@@ -513,8 +508,13 @@ void IRCCmd::Kill_Player(_CDATA *CD)
 void IRCCmd::Level_Player(_CDATA *CD)
 {
     std::string* _PARAMS = getArray(CD->PARAMS, CD->PCOUNT);
-    std::string player  = _PARAMS[0];
-    normalizePlayerName(player);
+    if(AcctLevel(_PARAMS[0]) > GetLevel(CD->USER) && (sIRC.BOTMASK & 512)!= 0)
+    {
+        Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Nice Try, This Player Has A Higher GM Level Than You! [ %i ]", AcctLevel(_PARAMS[0])), true, MSG_NOTICE);
+	    return;
+    }       
+	std::string player  = _PARAMS[0];
+	normalizePlayerName(player);
     uint64 guid = objmgr.GetPlayerGUIDByName(player.c_str());
     std::string s_newlevel  = _PARAMS[1];
     uint8 i_newlvl = atoi(s_newlevel.c_str());
@@ -528,11 +528,11 @@ void IRCCmd::Level_Player(_CDATA *CD)
         return;
     } else
     {
-        Player *chr = objmgr.GetPlayer(guid);
+		Player *chr = objmgr.GetPlayer(guid);
         int32 i_oldlvl = chr ? chr->getLevel() : Player::GetUInt32ValueFromDB(UNIT_FIELD_LEVEL,guid);
         if(chr)
         {
-            chr->GiveLevel(i_newlvl);
+			chr->GiveLevel(i_newlvl);
             chr->InitTalentForLevel();
             chr->SetUInt32Value(PLAYER_XP,0);
             WorldPacket data;
@@ -556,13 +556,18 @@ void IRCCmd::Level_Player(_CDATA *CD)
             Player::SaveValuesArrayInDB(values,guid);
         }
     }
-    Send_IRC(ChanOrPM(CD), " \00313["+player+"] : Has Been Leveled To "+s_newlevel+". By: "+CD->USER+".", true);
+    Send_IRC(ChanOrPM(CD), " \00313[" + _PARAMS[0]+ "] : Has Been Leveled To " + _PARAMS[1] + ". By: "+CD->USER+".", true);
 }
 
 void IRCCmd::Money_Player(_CDATA *CD)
 {
     std::string* _PARAMS = getArray(CD->PARAMS, 2);
-    std::string player  = _PARAMS[0];
+    if(AcctLevel(_PARAMS[0]) > GetLevel(CD->USER) && (sIRC.BOTMASK & 512)!= 0)
+    {
+        Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Nice Try, This Player Has A Higher GM Level Than You! [ %i ]", AcctLevel(_PARAMS[0])), true, MSG_NOTICE);
+	    return;
+    }     
+	std::string player  = _PARAMS[0];
     normalizePlayerName(player);
     uint64 guid = objmgr.GetPlayerGUIDByName(player.c_str());
     Player *chr = objmgr.GetPlayer(guid);
@@ -580,7 +585,7 @@ void IRCCmd::Money_Player(_CDATA *CD)
     }
     else
     {
-        Player *chr = objmgr.GetPlayer(guid);
+		Player *chr = objmgr.GetPlayer(guid);
         CharacterDatabase.escape_string(player);
         std::string sqlquery = "SELECT SUBSTRING_INDEX(SUBSTRING_INDEX(data, ' ' , 1325), ' ' , -1) AS `gold` FROM `character` WHERE `name` = '"+player+"';";
         QueryResult *result = CharacterDatabase.Query(sqlquery.c_str());
@@ -640,11 +645,16 @@ void IRCCmd::Money_Player(_CDATA *CD)
 void IRCCmd::Mute_Player(_CDATA *CD)
 {
     std::string* _PARAMS = getArray(CD->PARAMS, 3);
-    normalizePlayerName(_PARAMS[0]);
-    uint64 guid = objmgr.GetPlayerGUIDByName(_PARAMS[0]);
-    if(guid)
+    if(AcctLevel(_PARAMS[0]) > GetLevel(CD->USER) && (sIRC.BOTMASK & 512)!= 0)
     {
-        if(_PARAMS[1] == "release")
+        Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Nice Try, This Player Has A Higher GM Level Than You! [ %i ]", AcctLevel(_PARAMS[0])), true, MSG_NOTICE);
+	    return;
+    }         
+	normalizePlayerName(_PARAMS[0]);
+    uint64 guid = objmgr.GetPlayerGUIDByName(_PARAMS[0]);
+	if(guid)
+    {
+		if(_PARAMS[1] == "release")
         {
             Player* plr = objmgr.GetPlayer(guid);
             uint32 account_id = 0;
@@ -677,53 +687,10 @@ void IRCCmd::Mute_Player(_CDATA *CD)
 }
 
 #include "MCS_OnlinePlayers.h"
-
 void IRCCmd::Online_Players(_CDATA *CD)
 {
-    if(!sIRC.Script_Lock[MCS_Players_Online])
-    {
         sIRC.Script_Lock[MCS_Players_Online] = true;
         ZThread::Thread script(new mcs_OnlinePlayers(CD));
-    }
-
-    /*
-    int OnlineCount = 0;
-    std::string IRCOut = "";
-    HashMapHolder<Player>::MapType& m = ObjectAccessor::Instance().GetPlayers();
-    for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
-    {
-        if (itr->second && itr->second->GetSession()->GetPlayer() && itr->second->GetSession()->GetPlayer()->IsInWorld())
-        {
-            OnlineCount++;
-            Player *plr = itr->second->GetSession()->GetPlayer();
-            std::string ChatTag = " ";
-
-            if(plr->isAFK())
-                ChatTag.append("7<AFK>");
-            if(plr->isDND())
-                ChatTag.append("7<DND>");
-            if(itr->second->GetSession()->GetSecurity() > sConfig.GetIntDefault("OnlineGM", 2))
-                ChatTag.append("9<GM>");
-            if(itr->second->GetSession()->GetSecurity() > 0)
-                ChatTag.append("");
-
-            switch (plr->GetTeam())
-            {
-                case 67:ChatTag.append("4");break; //horde
-                case 469:ChatTag.append("12");break; //alliance
-            }
-            IRCOut.append(MakeMsg("%s%s(%d)", ChatTag.c_str(), plr->GetName(), plr->getLevel()));
-
-            if(OnlineCount % 10 == 0)
-            {
-                Send_IRC(ChanOrPM(CD), MakeMsg(" %s", IRCOut.c_str()), true);
-                IRCOut = "";
-            }
-        }
-    }
-    // Remainder in IRCOUT && Total plyersonline
-    Send_IRC(ChanOrPM(CD), MakeMsg(" %s Players Online(%d)", IRCOut.c_str(), OnlineCount), true);
-    */
 }
 
 void IRCCmd::Player_Info(_CDATA *CD)
@@ -876,11 +843,16 @@ void IRCCmd::Shutdown_Mangos(_CDATA *CD)
 void IRCCmd::Spell_Player(_CDATA *CD)
 {
     std::string* _PARAMS = getArray(CD->PARAMS, 3);
-    uint32 spell         = atoi(_PARAMS[2].c_str());
+    if(AcctLevel(_PARAMS[0]) > GetLevel(CD->USER) && (sIRC.BOTMASK & 512)!= 0)
+    {
+        Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Nice Try, This Player Has A Higher GM Level Than You! [ %i ]", AcctLevel(_PARAMS[0])), true, MSG_NOTICE);
+	    return;
+    }     	
+	uint32 spell         = atoi(_PARAMS[2].c_str());
     SpellEntry const *spellInfo = sSpellStore.LookupEntry(spell);
     if (Player* plr = GetPlayer(_PARAMS[0]))
     {
-        if(spellInfo)
+		if(spellInfo)
         {
             std::string name = spellInfo->SpellName[sWorld.GetDBClang()];
             if(_PARAMS[1] == "cast")
@@ -931,15 +903,20 @@ void IRCCmd::Sysmsg_Server(_CDATA *CD)
 
 void IRCCmd::Tele_Player(_CDATA *CD)
 {
-    bool DoTeleport = false;
+    std::string* _PARAMS = getArray(CD->PARAMS, 4);
+    if(AcctLevel(_PARAMS[0]) > GetLevel(CD->USER) && (sIRC.BOTMASK & 512)!= 0)
+    {
+        Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Nice Try, This Player Has A Higher GM Level Than You! [ %i ]", AcctLevel(_PARAMS[0])), true, MSG_NOTICE);
+	    return;
+    }     	
+	bool DoTeleport = false;
     float pX, pY, pZ, pO = 0;
     uint32 mapid = 0;
     std::string rMsg = " \0034[ERROR] : Teleport Failed!";
     std::string wMsg = "Invalid Tele Location";
-    std::string* _PARAMS = getArray(CD->PARAMS, 4);
-    if (Player* plr = GetPlayer(_PARAMS[0]))
+	if (Player* plr = GetPlayer(_PARAMS[0]))
     {
-        std::string* _PARAMS = getArray(CD->PARAMS, 3);
+		std::string* _PARAMS = getArray(CD->PARAMS, 3);
         if(plr->isInFlight())
         {
             Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : %s Is Flying And Cannot Be Teleported!",_PARAMS[0].c_str()), true, MSG_NOTICE);
@@ -968,7 +945,27 @@ void IRCCmd::Tele_Player(_CDATA *CD)
                 DoTeleport = true;
             }
             else
-                Send_IRC(ChanOrPM(CD), " \0034[ERROR] : Location Not Found!", true);
+			{
+			    WorldDatabase.escape_string(_PARAMS[2]);
+                QueryResult *result = WorldDatabase.PQuery("SELECT `name` FROM `game_tele` WHERE `name` LIKE '%%%s%%' LIMIT 3;", _PARAMS[2].c_str());
+			    if (result)
+                {
+					std::string telename = "<> ";
+					for (uint64 i=0; i < result->GetRowCount(); i++)
+					{	Field *fields = result->Fetch();
+						telename.append(fields[0].GetCppString());
+						result->NextRow();
+						telename.append(" <> ");
+					}
+					delete result;
+					Send_IRCA(CD->USER, "I Cannot Find Location: "+_PARAMS[2]+" . Perhaps One Of These Will Work For You.", true, MSG_NOTICE);
+					Send_IRCA(CD->USER, telename, true, MSG_NOTICE);
+					return;
+				}
+				else
+					Send_IRCA(CD->USER, " \0034[ERROR] : Location Not Found! Nothing Even Close Found!", true, MSG_NOTICE);
+				    return;
+			}
         }
         else if(_PARAMS[1] == "c")
         {
@@ -1007,11 +1004,9 @@ void IRCCmd::Tele_Player(_CDATA *CD)
         }
         else if(_PARAMS[1] == "to")
         {
-            Player* plr2 = GetPlayer(_PARAMS[2]);
-            uint64 guid = objmgr.GetPlayerGUIDByName(_PARAMS[2]);
-            if(plr2)
+            if(Player* plr2 = GetPlayer(_PARAMS[2]))
             {
-                Player::LoadPositionFromDB(mapid,pX,pY,pZ,pO,guid);
+                Player::LoadPositionFromDB(mapid,pX,pY,pZ,pO, plr2->GetGUID());
                 rMsg = MakeMsg(" \00313[%s] : Teleported To Player: [%s] By: %s.",
                     _PARAMS[0].c_str(),
                     _PARAMS[2].c_str(),
@@ -1044,21 +1039,10 @@ void IRCCmd::Tele_Player(_CDATA *CD)
 void IRCCmd::Who_Logged(_CDATA *CD)
 {
     std::string OPS = "";
-
     for(std::list<_client*>::iterator i=_CLIENTS.begin(); i!=_CLIENTS.end();i++)
     {
         OPS.append(MakeMsg(" \002[GM:%d IRC: %s - WoW: %s]\002 ", (*i)->GMLevel, (*i)->Name.c_str(), (*i)->UName.c_str()));
     }
-
-    /*
-    for(int i = 0;i < MAX_CLIENTS;i++)
-    {
-        if(CLIENTS[i].LoggedIn)
-        {
-            OPS.append(MakeMsg(" [GM:%d IRC: %s - WoW: %s] ", CLIENTS[i].GMLevel, CLIENTS[i].Name.c_str() ,CLIENTS[i].UName.c_str()));
-        }
-    }
-    */
     Send_IRC(ChanOrPM(CD), OPS, true);
 }
 
@@ -1068,17 +1052,12 @@ void IRCCmd::Who_Logged(_CDATA *CD)
 // it spawns a npc near the player and roots it it greets the player
 // then casts buff spells stamina, intellect, spirit then leaves
 // the purpose of this all was to learn more about the unit classes and grid
-// i tworks fine with 1 player (so far my own tests) and a few spawns
+// it works fine with 5 players (so far our own tests) and a few spawns
 // i do not know the stability and functionality with a "loaded" server
-// and multiple buffers in theorty each buffer is on its own thread
-// and should be spawn and talk to the correct player regaredles where
+// and multiple buffers in theory each buffer is on its own thread
+// and should be spawn and talk to the correct player regardless where
 // they are in the world
 // ** USE THIS AT YOUR OWN RISK
-#define NPC_ENTRY sIRC.ZBUFF_NPC
-#define SPELL_ANIM sIRC.ZBUFF_ANIM
-#define CAST_SPELL_1 sIRC.ZBUFF_SPELL1                      // 25389 POWER WORD
-#define CAST_SPELL_2 sIRC.ZBUFF_SPELL2                      // 10157 //27126 //ARC INT
-#define CAST_SPELL_3 sIRC.ZBUFF_SPELL3                      // 25312// DIVINE SPIRIT
 #ifdef _WIN32
 DWORD   WINAPI Buff_Script(void* ptr)
 #else
@@ -1087,9 +1066,11 @@ void *Buff_Script( void *ptr )
 {
     if(sIRC._Max_Script_Inst == MAX_SCRIPT_INST)
         return 0;
+
     sIRC._Max_Script_Inst++;
     std::string pname = (char *)ptr;
     normalizePlayerName(pname);
+
     if (Player* plr = ObjectAccessor::Instance().FindPlayerByName(pname.c_str()))
     {
         Creature* pCreature = new Creature(plr);
@@ -1099,24 +1080,24 @@ void *Buff_Script( void *ptr )
             plr->GetPositionY() - 3,
             plr->GetPositionZ() + 5,
             plr->GetOrientation() - 2.5,
-            NPC_ENTRY,
+            sIRC.ZBUFF_NPC,
             plr->GetTeam())) { delete pCreature; }
             else
-        {
+			{
             Delay(500);
             pCreature->SaveToDB();
-                                                            // To call _LoadGoods(); _LoadQuests(); CreateTrainerSpells();
+			// To call _LoadGoods(); _LoadQuests(); CreateTrainerSpells();
             pCreature->LoadFromDB(pCreature->GetGUIDLow(), plr->GetInstanceId());
             plr->SetMovement(MOVE_ROOT);
             plr->PlaySound(S_ENTERWORLD ,true);
             MapManager::Instance().GetMap(pCreature->GetMapId(), pCreature)->Add(pCreature);
             Delay(500);
-            pCreature->Say("Hi my name is Cybrax, i came here to assist you.", LANG_UNIVERSAL, plr->GetGUID());
+            pCreature->Say("Hello I Am Cybrax, I Am Here To Enhance Your Abilities.", LANG_UNIVERSAL, plr->GetGUID());
             Delay(2000);
-            pCreature->CastSpell(plr, sSpellStore.LookupEntry( SPELL_ANIM ), true);
+            pCreature->CastSpell(plr, sSpellStore.LookupEntry( sIRC.ZBUFF_ANIM ), true);
             Delay(2000);
             pCreature->CombatStop();
-            if(SpellEntry const *spellInfo = sSpellStore.LookupEntry( CAST_SPELL_1 ))
+            if(SpellEntry const *spellInfo = sSpellStore.LookupEntry( sIRC.ZBUFF_SPELL1 ))
             {
                 for(uint32 i = 0;i<3;i++)
                 {
@@ -1131,7 +1112,7 @@ void *Buff_Script( void *ptr )
                 }
             }
             Delay(1000);
-            if(SpellEntry const *spellInfo = sSpellStore.LookupEntry( CAST_SPELL_2 ))
+            if(SpellEntry const *spellInfo = sSpellStore.LookupEntry( sIRC.ZBUFF_SPELL2 ))
             {
                 for(uint32 i = 0;i<3;i++)
                 {
@@ -1146,7 +1127,7 @@ void *Buff_Script( void *ptr )
                 }
             }
             Delay(1000);
-            if(SpellEntry const *spellInfo = sSpellStore.LookupEntry( CAST_SPELL_3 ))
+            if(SpellEntry const *spellInfo = sSpellStore.LookupEntry( sIRC.ZBUFF_SPELL3 ))
             {
                 for(uint32 i = 0;i<3;i++)
                 {
@@ -1161,7 +1142,7 @@ void *Buff_Script( void *ptr )
                 }
             }
             Delay(2000);
-            pCreature->Say("I Must Bid You Farewell Now.", LANG_UNIVERSAL, plr->GetGUID());
+            pCreature->Say("I Have Done All I Can Do For You, Good Bye!", LANG_UNIVERSAL, plr->GetGUID());
             Delay(1000);
             plr->SetMovement(MOVE_UNROOT);
             plr->PlaySound(S_STEALTH ,true);
@@ -1174,17 +1155,16 @@ void *Buff_Script( void *ptr )
     sIRC._Max_Script_Inst--;
     return 0;
 }
-
 void IRCCmd::Zbuff_Player(_CDATA *CD)
 {
     std::string* _PARAMS = getArray(CD->PARAMS, 1);
     if (Player* plr = GetPlayer(_PARAMS[0]))
     {
         #ifdef _WIN32
-        CreateThread(NULL, 0, Buff_Script, (void*)plr->GetName(), 0, NULL);
+            CreateThread(NULL, 0, Buff_Script, (void*)plr->GetName(), 0, NULL);
         #else
-        MThread *newthr = new MThread ();
-        pthread_create(&newthr->tid, NULL, &Buff_Script, (void*)plr->GetName());
+            MThread *newthr = new MThread ();
+            pthread_create(&newthr->tid, NULL, &Buff_Script, (void*)plr->GetName());
         #endif
         sIRC.Send_IRC_Channel(ChanOrPM(CD), MakeMsg(" \00313[%s] : Has Been Buffed!",_PARAMS[0].c_str()), true);
     }
