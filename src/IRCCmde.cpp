@@ -317,7 +317,7 @@ void IRCCmd::Item_Player(_CDATA *CD)
             Send_IRCA(CD->USER, " \0034[ERROR] : "+_PARAMS[0]+" Is Not Online!", true, MSG_NOTICE);
             return;
         }
-        sLog.outDetail(LANG_ADDITEM, itemId, count);
+        sLog.outDetail("Command : Additem, itemId = %i, amount = %i", itemId, count);
         ItemPrototype const *pProto = objmgr.GetItemPrototype(itemId);
         if(!pProto)
         {
@@ -538,13 +538,13 @@ void IRCCmd::Level_Player(_CDATA *CD)
             WorldPacket data;
             ChatHandler CH(chr->GetSession());
             if(i_oldlvl == i_newlvl)
-                CH.FillSystemMessageData(&data, LANG_YOURS_LEVEL_PROGRESS_RESET);
+                CH.FillSystemMessageData(&data, "Your level progress has been reset.");
             else
             if(i_oldlvl < i_newlvl)
-                CH.FillSystemMessageData(&data, fmtstring(LANG_YOURS_LEVEL_UP,i_newlvl-i_oldlvl));
+                CH.FillSystemMessageData(&data, fmtstring("You have been leveled up (%i)",i_newlvl-i_oldlvl));
             else
             if(i_oldlvl > i_newlvl)
-                CH.FillSystemMessageData(&data, fmtstring(LANG_YOURS_LEVEL_DOWN,i_newlvl-i_oldlvl));
+                CH.FillSystemMessageData(&data, fmtstring("You have been leveled down (%i)",i_newlvl-i_oldlvl));
             chr->GetSession()->SendPacket( &data );
         }
         else
@@ -601,7 +601,7 @@ void IRCCmd::Money_Player(_CDATA *CD)
             sprintf(s_newmoney,"%d",newmoney);
             if(addmoney < 0)
             {
-                sLog.outDetail(LANG_CURRENT_MONEY, moneyuser, addmoney, newmoney);
+                sLog.outDetail("USER1: %i, ADD: %i, DIF: %i\\n", moneyuser, addmoney, newmoney);
                 if(newmoney <= 0 )
                 {
                     Send_IRC(ChanOrPM(CD), " \00313["+player+"] : Has Had All Money Taken By: "+CD->USER.c_str()+".", true);
@@ -883,14 +883,14 @@ void IRCCmd::Sysmsg_Server(_CDATA *CD)
     std::string* _PARAMS = getArray(CD->PARAMS, CD->PCOUNT);
     if(_PARAMS[0] == "a")
     {
-        std::string str = LANG_SYSTEMMESSAGE + _PARAMS[1];
+        std::string str = "|cffff0000[System Message]:|r" + _PARAMS[1];
         std::string ancmsg = MakeMsg("\00304,08\002\037*[!]*\037SysMsg\037*[!]*\037\002\003 %s \00304,08\002\037*[!]*\037SysMsg\037*[!]*\037\002\003",_PARAMS[1].c_str());
         sWorld.SendWorldText(str.c_str(), NULL);
         Send_IRC(ChanOrPM(CD), ancmsg, true);
     }
     else if (_PARAMS[0] == "n")
     {
-        std::string str = LANG_GLOBAL_NOTIFY + _PARAMS[1];
+        std::string str = "Global notify: " + _PARAMS[1];
         std::string notmsg = MakeMsg("\00304,08\002\037*[!]*\037SysNotice\037*[!]*\037\002\003 %s \00304,08\002\037*[!]*\037SysNotice\037*[!]*\037\002\003",_PARAMS[1].c_str());
         WorldPacket data(SMSG_NOTIFICATION, (str.size()+1));
         data << str;

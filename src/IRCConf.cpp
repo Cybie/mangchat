@@ -71,8 +71,8 @@ bool IRCClient::LoadConfig()
         {
             std::string command = fields[0].GetCppString();
             uint32 gmlvl = fields[1].GetUInt32();
-            if(command == "acct") sIRC.CFUN = gmlvl;
-			if(command == "fun") sIRC.CFUN = gmlvl;
+            if(command == "acct") sIRC.CACCT = gmlvl;
+            if(command == "fun") sIRC.CFUN = gmlvl;
             if(command == "item") sIRC.CITEM = gmlvl;
             if(command == "jail") sIRC.CJAIL = gmlvl;
             if(command == "kick") sIRC.CKICK = gmlvl;

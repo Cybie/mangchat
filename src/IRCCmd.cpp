@@ -78,7 +78,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
                     Account_Player(&CDATA);
                     break;
                 case E_SIZE:
-                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"acct <Player> </> )", true, MSG_NOTICE);
+                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"acct <Player> <(un)lock/rename> )", true, MSG_NOTICE);
                     break;
                 case E_AUTH:
                     AuthValid = false;
