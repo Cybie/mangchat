@@ -413,7 +413,7 @@ void IRCCmd::Jail_Player(_CDATA *CD)
         {
             Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Nice Try, This Player Has A Higher GM Level Than You! [ %i ]", AcctLevel(_PARAMS[0])), true, MSG_NOTICE);
 	        return;
-        }             
+        }
 		if (Player *plr = GetPlayer(_PARAMS[0]))
         { 
 			std::string sReason = "";
@@ -908,7 +908,7 @@ void IRCCmd::Tele_Player(_CDATA *CD)
     {
         Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Nice Try, This Player Has A Higher GM Level Than You! [ %i ]", AcctLevel(_PARAMS[0])), true, MSG_NOTICE);
 	    return;
-    }     	
+    }
 	bool DoTeleport = false;
     float pX, pY, pZ, pO = 0;
     uint32 mapid = 0;
@@ -1006,7 +1006,8 @@ void IRCCmd::Tele_Player(_CDATA *CD)
         {
             if(Player* plr2 = GetPlayer(_PARAMS[2]))
             {
-                Player::LoadPositionFromDB(mapid,pX,pY,pZ,pO, plr2->GetGUID());
+                bool in_flight;
+                Player::LoadPositionFromDB(mapid,pX,pY,pZ,pO,in_flight, plr2->GetGUID());
                 rMsg = MakeMsg(" \00313[%s] : Teleported To Player: [%s] By: %s.",
                     _PARAMS[0].c_str(),
                     _PARAMS[2].c_str(),
