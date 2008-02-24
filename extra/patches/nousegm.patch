@@ -1,6 +1,6 @@
 Index: src/game/Level1.cpp
 ===================================================================
---- src/game/Level1.cpp	(revision 5116)
+--- src/game/Level1.cpp	(revision 5237)
 +++ src/game/Level1.cpp	(working copy)
 @@ -1,4 +1,4 @@
 -/* 
@@ -8,7 +8,7 @@ Index: src/game/Level1.cpp
   * Copyright (C) 2005-2008 MaNGOS <http://www.mangosproject.org/>
   *
   * This program is free software; you can redistribute it and/or modify
-@@ -265,6 +265,11 @@
+@@ -277,6 +277,11 @@
      Player *chr = objmgr.GetPlayer(name.c_str());
      if (chr)
      {
@@ -20,7 +20,7 @@ Index: src/game/Level1.cpp
          if(chr->IsBeingTeleported()==true)
          {
              PSendSysMessage(LANG_IS_TELEPORTED, chr->GetName());
-@@ -352,6 +357,11 @@
+@@ -364,6 +369,11 @@
      Player *chr = objmgr.GetPlayer(name.c_str());
      if (chr)
      {
@@ -29,18 +29,19 @@ Index: src/game/Level1.cpp
 +            SendSysMessage("Your GM Level Is Not High Enough To Teleport To That Player!");
 +            return true;
 +        }
-         Map* cMap = MapManager::Instance().GetMap(chr->GetMapId(),chr);
-         if(cMap->Instanceable())
+         if(chr->isInFlight())
          {
-@@ -1765,6 +1775,11 @@
+             PSendSysMessage(LANG_CHAR_IN_FLIGHT, chr->GetName());
+@@ -1782,7 +1792,11 @@
      Player *chr = objmgr.GetPlayer(name.c_str());
      if (chr)
      {
+-
 +        if(chr->GetSession()->GetSecurity() > m_session->GetSecurity())
 +        {
 +            SendSysMessage("Your GM Level Is Not High Enough To Teleport This Player!");
 +            return true;
 +        }
- 
          if(chr->IsBeingTeleported()==true)
          {
+             PSendSysMessage(LANG_IS_TELEPORTED, chr->GetName());
