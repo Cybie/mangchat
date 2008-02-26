@@ -9,6 +9,7 @@
 #include "../ObjectMgr.h"
 #include "../Language.h"
 #include "../SpellAuras.h"
+#include "../SystemConfig.h"
 #include "../Config/ConfigEnv.h"
 
 #define Send_Player(p, m)           sIRC.Send_WoW_Player(p, m)
@@ -25,7 +26,7 @@ void IRCCmd::Handle_Login(_CDATA *CD)
     std::string* _PARAMS = getArray(CD->PARAMS, 2);
     if(!IsLoggedIn(CD->USER))
     {
-        QueryResult *result = loginDatabase.PQuery("SELECT `gmlevel` FROM `account` WHERE `username`='%s' AND `I`=SHA1(CONCAT(UPPER(`username`),':',UPPER('%s')));", _PARAMS[0].c_str(), _PARAMS[1].c_str());
+        QueryResult *result = loginDatabase.PQuery("SELECT `gmlevel` FROM `account` WHERE `username`='%s' AND `sha_pass_hash`=SHA1(CONCAT(UPPER(`username`),':',UPPER('%s')));", _PARAMS[0].c_str(), _PARAMS[1].c_str());
         if (result)
         {
             Field *fields = result->Fetch();
@@ -96,7 +97,7 @@ void IRCCmd::Account_Player(_CDATA *CD)
 				plr->SetAtLoginFlag(AT_LOGIN_RENAME);
 				Send_Player(plr, MakeMsg("%s Has Requested You Change This Characters Name, Rename Will Be Forced On Next Login!", CD->USER.c_str()));
 			}
-			CharacterDatabase.PExecute("UPDATE `character` SET `at_login` = `at_login` | '1' WHERE `guid` = '%u'", guid);
+			CharacterDatabase.PExecute("UPDATE `characters` SET `at_login` = `at_login` | '1' WHERE `guid` = '%u'", guid);
 			Send_IRC(ChanOrPM(CD), " \00313["+_PARAMS[0]+"] : Has Been Forced To Change Their Characters Name, Rename Will Be Forced On Next Login!",true);
 		}
 	}
@@ -251,7 +252,10 @@ void IRCCmd::Info_Server(_CDATA *CD)
     char maxClientsNum [50];
     sprintf(maxClientsNum, "%u", sWorld.GetMaxSessionCount());
     std::string str = secsToTimeString(sWorld.GetUptime());
-    Send_IRC(ChanOrPM(CD), " Number Of Players Online: " + (std::string)clientsNum + ". (Max Since Last Restart: " + (std::string)maxClientsNum + ")" + " Uptime: " + str, true);
+	std::string svnrev = _FULLVERSION;
+	Send_IRC(ChanOrPM(CD), "\x2 Number Of Players Online:\x3\x31\x30 " + (std::string)clientsNum + "\xF |\x2 Max Since Last Restart:\x3\x31\x30 "+(std::string)maxClientsNum+"\xF |\x2 UpTime:\x3\x31\x30 "+str, true);
+	Send_IRC(ChanOrPM(CD), "\x2 MaNGOS SVN Rev:\x3\x31\x30 "+svnrev, true);
+	//Send_IRC(ChanOrPM(CD), " Number Of Players Online: " + (std::string)clientsNum + ". (Max Since Last Restart: " + (std::string)maxClientsNum + ")" + " Uptime: " + str + "SVN Rev: " +svnrev, true);
 }
 
 void IRCCmd::Item_Player(_CDATA *CD)
@@ -587,7 +591,7 @@ void IRCCmd::Money_Player(_CDATA *CD)
     {
 		Player *chr = objmgr.GetPlayer(guid);
         CharacterDatabase.escape_string(player);
-        std::string sqlquery = "SELECT SUBSTRING_INDEX(SUBSTRING_INDEX(data, ' ' , 1325), ' ' , -1) AS `gold` FROM `character` WHERE `name` = '"+player+"';";
+        std::string sqlquery = "SELECT SUBSTRING_INDEX(SUBSTRING_INDEX(data, ' ' , 1325), ' ' , -1) AS `gold` FROM `characters` WHERE `name` = '"+player+"';";
         QueryResult *result = CharacterDatabase.Query(sqlquery.c_str());
         if(result)
         {
@@ -611,7 +615,7 @@ void IRCCmd::Money_Player(_CDATA *CD)
                         Send_Player(chr, MakeMsg("You Have Been Liquidated By: %s. Total Money Is Now 0.", CD->USER.c_str()));
                     }
                     else
-                        CharacterDatabase.PExecute("UPDATE `character` SET data=concat(substring_index(data,' ',1325-1),' ','%u',' ', right(data,length(data)-length(substring_index(data,' ',1325))-1) ) where guid='%u'",newmoney, guid );
+                        CharacterDatabase.PExecute("UPDATE `characters` SET data=concat(substring_index(data,' ',1325-1),' ','%u',' ', right(data,length(data)-length(substring_index(data,' ',1325))-1) ) where guid='%u'",newmoney, guid );
                 }
                 else
                 {
@@ -622,7 +626,7 @@ void IRCCmd::Money_Player(_CDATA *CD)
                         Send_Player(chr, MakeMsg("You Have Had %s Copper Taken From You By: %s.", _PARAMS[1].c_str(), CD->USER.c_str()));
                     }
                     else
-                        CharacterDatabase.PExecute("UPDATE `character` SET data=concat(substring_index(data,' ',1325-1),' ','%u',' ', right(data,length(data)-length(substring_index(data,' ',1325))-1) ) where guid='%u'",newmoney, guid );
+                        CharacterDatabase.PExecute("UPDATE `characters` SET data=concat(substring_index(data,' ',1325-1),' ','%u',' ', right(data,length(data)-length(substring_index(data,' ',1325))-1) ) where guid='%u'",newmoney, guid );
                 }
             }
             else
@@ -634,7 +638,7 @@ void IRCCmd::Money_Player(_CDATA *CD)
                     Send_Player(chr, MakeMsg("You Have Been Given %s Copper. From: %s.", _PARAMS[1].c_str(), CD->USER.c_str()));
                 }
                 else
-                    CharacterDatabase.PExecute("UPDATE `character` SET data=concat(substring_index(data,' ',1325-1),' ','%u',' ', right(data,length(data)-length(substring_index(data,' ',1325))-1) ) where guid='%u'",newmoney, guid );
+                    CharacterDatabase.PExecute("UPDATE `characters` SET data=concat(substring_index(data,' ',1325-1),' ','%u',' ', right(data,length(data)-length(substring_index(data,' ',1325))-1) ) where guid='%u'",newmoney, guid );
             }
         }
         else
@@ -699,7 +703,7 @@ void IRCCmd::Player_Info(_CDATA *CD)
     std::string pname = _PARAMS[0];
     uint64 guid = objmgr.GetPlayerGUIDByName(pname);
     CharacterDatabase.escape_string(pname);
-    std::string sqlquery = "SELECT `guid`, `account`, `name`, `race`, `class`, `online`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 35), ' ' , -1) AS `level`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 236), ' ' , -1) AS `guildid`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 237), ' ' , -1) AS `guildrank`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 863), ' ' , -1) AS `xp`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 864), ' ' , -1) AS `maxxp`, SUBSTRING_INDEX(SUBSTRING_INDEX(data, ' ' , 1333), ' ' , -1) AS `gold`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 1385), ' ' , -1) AS `hk` FROM `character` WHERE `name` LIKE '" + pname + "';";
+    std::string sqlquery = "SELECT `guid`, `account`, `name`, `race`, `class`, `online`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 35), ' ' , -1) AS `level`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 236), ' ' , -1) AS `guildid`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 237), ' ' , -1) AS `guildrank`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 863), ' ' , -1) AS `xp`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 864), ' ' , -1) AS `maxxp`, SUBSTRING_INDEX(SUBSTRING_INDEX(data, ' ' , 1333), ' ' , -1) AS `gold`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 1385), ' ' , -1) AS `hk` FROM `characters` WHERE `name` LIKE '" + pname + "';";
     QueryResult *result = CharacterDatabase.Query(sqlquery.c_str());
     Player *chr = objmgr.GetPlayer(guid);
     if(result)

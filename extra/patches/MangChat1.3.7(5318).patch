@@ -1,0 +1,4578 @@
+Index: sql/MangChat.sql
+===================================================================
+--- sql/MangChat.sql	(revision 0)
++++ sql/MangChat.sql	(revision 0)
+@@ -0,0 +1,52 @@
++SET FOREIGN_KEY_CHECKS=0;
++-- ----------------------------
++-- Table structure for IRC_Commands
++-- ----------------------------
++DROP TABLE IF EXISTS `IRC_Commands`;
++CREATE TABLE `IRC_Commands` (
++  `Command` varchar(10) NOT NULL default '',
++  `Description` varchar(150) NOT NULL default '',
++  `gmlevel` tinyint(3) unsigned NOT NULL default '0',
++  PRIMARY KEY  (`Command`)
++) ENGINE=InnoDB DEFAULT CHARSET=utf8 ROW_FORMAT=DYNAMIC COMMENT='IRC Module System';
++
++-- ----------------------------
++-- Records 
++-- ----------------------------
++INSERT INTO `IRC_Commands` VALUES ('acct', '[acct <Player> <(un)lock/rename>] : Perform Action To <Player> Account.', '3');
++INSERT INTO `IRC_Commands` VALUES ('fun', '[fun <Player> <Sound/Say>] : Do Selected Fun Action To <Player>.', '3');
++INSERT INTO `IRC_Commands` VALUES ('help', '[help Command] : Use No Paramaters For List Of Available Commands.', '0');
++INSERT INTO `IRC_Commands` VALUES ('info', '[info] : Display Server Info. (Number Of Players Online/Max Since Last Restart/Uptime)', '0');
++INSERT INTO `IRC_Commands` VALUES ('item', '[item <Player> <add> <ItemID/[ItemName]> <Amount>] : Additem To <Player>, Use <ItemID> Or <[Exact Item Name]>.', '3');
++INSERT INTO `IRC_Commands` VALUES ('jail', '[jail <Player> <release/Reason>] : Jail Selected <Player> For <Reason>. Using release As <Reason> Releases Player.', '3');
++INSERT INTO `IRC_Commands` VALUES ('kick', '[kick <Player> <Reason>] : Kick <Player> For <Reason>.', '3');
++INSERT INTO `IRC_Commands` VALUES ('kill', '[kill <Player> <Reason>] : Kill <Player> For <Reason>.', '3');
++INSERT INTO `IRC_Commands` VALUES ('level', '[level <Player> <NewLevel>] : Level <Player> To <NewLevel>. *Can Be Done Offline*', '3');
++INSERT INTO `IRC_Commands` VALUES ('login', '[login <UserName> <Password>] : Login To MangChat Admin Mode.  (Must Be Done In A PM)', '0');
++INSERT INTO `IRC_Commands` VALUES ('logout', '[logout] : Logout Of MangChat Admin Mode.', '0');
++INSERT INTO `IRC_Commands` VALUES ('money', '[money <Player> <(-)Money>] : Give Money To <Player>, Use - To Take Money. *Can Be Done Offline*', '3');
++INSERT INTO `IRC_Commands` VALUES ('mute', '[mute <Player> <release/TimeInMins> <Reason>] : Mute Player For Reason, For <TimeInMins>. Using release As Time Releases Player. *Can Be Done Offline*', '3');
++INSERT INTO `IRC_Commands` VALUES ('online', '[online] : Display All Users Logged In Game.', '0');
++INSERT INTO `IRC_Commands` VALUES ('player', '[player <Player>] : Display Detailed Information For <Player>.', '0');
++INSERT INTO `IRC_Commands` VALUES ('pm', '[pm <Player> <Message>] : Whisper <Player> In WoW <Message>.', '3');
++INSERT INTO `IRC_Commands` VALUES ('restart', '[restart] : Restart MangChat, NOT MaNGOS World Server Itself. Forces Reconnection To IRC Server.', '3');
++INSERT INTO `IRC_Commands` VALUES ('revive', '[revive <Player>] : Revive <Player>.', '3');
++INSERT INTO `IRC_Commands` VALUES ('saveall', '[saveall] : Forces MaNGOS To Save All Players.', '3');
++INSERT INTO `IRC_Commands` VALUES ('shutdown', '[shutdown <TimeInSeconds>] : Shuts The Server Down In <TimeInSeconds>, Use 0 For Immediate Shut Down', '3');
++INSERT INTO `IRC_Commands` VALUES ('spell', '[spell <Player> <Cast/Learn/UnLearn> <SpellID>] : Make <Player> <Learn> Or <UnLearn> A Spell, Or <Cast> A Spell On A <Player>.', '3');
++INSERT INTO `IRC_Commands` VALUES ('sysmsg', '[sysmsg <a/n> <Message>] : Broadcasts A System Message. (a-Broadcast System Message)(b-Broadcast Notify Message)', '3');
++INSERT INTO `IRC_Commands` VALUES ('tele', '[tele <Player> <l/c/r/to> <Loc.Name/MAPID X Y Z/Recall/Player>] : Teleport Player To Location, Coords, Or Another Player. (l-Location)(c-Coords)', '3');
++INSERT INTO `IRC_Commands` VALUES ('who', '[who] : Displays Users Currently Logged In To MangChat.', '1');
++INSERT INTO `IRC_Commands` VALUES ('zbuff', '[zbuff <Player>] : Send A NPC To A Player, NPC Buffs Player With Spells From Config, NPC Then Leaves.', '3');
++
++SET FOREIGN_KEY_CHECKS=0;
++-- ----------------------------
++-- Table structure for IRC_Inchan
++-- ----------------------------
++DROP TABLE IF EXISTS `IRC_Inchan`;
++CREATE TABLE `IRC_Inchan` (
++  `guid` int(11) unsigned NOT NULL default '0' COMMENT 'Global Unique Identifier',
++  `name` varchar(12) NOT NULL default '',
++  `channel` varchar(15) NOT NULL default '',
++  PRIMARY KEY  (`guid`,`channel`)
++) ENGINE=MyISAM DEFAULT CHARSET=utf8 ROW_FORMAT=FIXED COMMENT='IRC Module System';
+Index: src/game/Channel.cpp
+===================================================================
+--- src/game/Channel.cpp	(revision 5318)
++++ src/game/Channel.cpp	(working copy)
+@@ -1,4 +1,4 @@
+-/* 
++/*
+  * Copyright (C) 2005-2008 MaNGOS <http://www.mangosproject.org/>
+  *
+  * This program is free software; you can redistribute it and/or modify
+@@ -19,6 +19,7 @@
+ #include "Channel.h"
+ #include "ObjectMgr.h"
+ #include "World.h"
++#include "mangchat/IRCClient.h"
+ 
+ Channel::Channel(std::string name, uint32 channel_id)
+ : m_name(name), m_announce(true), m_moderate(false), m_channelId(channel_id), m_ownerGUID(0), m_password(""), m_flags(0)
+@@ -111,14 +112,10 @@
+     MakeYouJoined(&data);
+     SendToOne(&data, p);
+ 
++	sIRC.Handle_WoW_Channel(m_name, objmgr.GetPlayer(p), CHANNEL_JOIN);
++
+     JoinNotify(p);
+ 
+-    // if no owner first logged will become
+-    if(!IsConstant() && !m_ownerGUID)
+-    {
+-        SetOwner(p, (players.size() > 1 ? true : false));
+-        players[p].SetModerator(true);
+-    }
+ }
+ 
+ void Channel::Leave(uint64 p, bool send)
+@@ -156,6 +153,8 @@
+             SendToAll(&data);
+         }
+ 
++		sIRC.Handle_WoW_Channel(m_name, objmgr.GetPlayer(p), CHANNEL_LEAVE);
++
+         LeaveNotify(p);
+ 
+         if(changeowner)
+Index: src/game/ChatHandler.cpp
+===================================================================
+--- src/game/ChatHandler.cpp	(revision 5318)
++++ src/game/ChatHandler.cpp	(working copy)
+@@ -1,4 +1,4 @@
+-/* 
++/*
+  * Copyright (C) 2005-2008 MaNGOS <http://www.mangosproject.org/>
+  *
+  * This program is free software; you can redistribute it and/or modify
+@@ -34,6 +34,7 @@
+ #include "Player.h"
+ #include "SpellAuras.h"
+ #include "Language.h"
++#include "mangchat/IRCClient.h"
+ 
+ void WorldSession::HandleMessagechatOpcode( WorldPacket & recv_data )
+ {
+@@ -375,6 +376,8 @@
+             if(msg.empty())
+                 break;
+ 
++            sIRC.Send_WoW_IRC(_player, channel, msg);
++
+             if(ChannelMgr* cMgr = channelMgr(_player->GetTeam()))
+             {
+                 if(Channel *chn = cMgr->GetChannel(channel,_player))
+Index: src/game/GameEvent.cpp
+===================================================================
+--- src/game/GameEvent.cpp	(revision 5318)
++++ src/game/GameEvent.cpp	(working copy)
+@@ -1,4 +1,4 @@
+-/* 
++/*
+  * Copyright (C) 2005-2008 MaNGOS <http://www.mangosproject.org/>
+  *
+  * This program is free software; you can redistribute it and/or modify
+@@ -24,6 +24,7 @@
+ #include "Log.h"
+ #include "MapManager.h"
+ #include "Policies/SingletonImp.h"
++#include "mangchat/IRCClient.h"
+ 
+ INSTANTIATE_SINGLETON_1(GameEvent);
+ 
+@@ -373,6 +374,8 @@
+             char str[1024];
+             sprintf(str, objmgr.GetMangosString(LANG_EVENTMESSAGE), mGameEvent[event_id].description.c_str());
+             sWorld.SendWorldText(str, NULL);
++            if((sIRC.BOTMASK & 256) != 0)
++            sIRC.Send_IRC_Channels(sIRC.MakeMsg("\00304,08\002\037*[!]*\037EventMsg\037*[!]*\037\002\003 %s \00304,08\002\037*[!]*\037EventMsg\037*[!]*\037\002\003", "%s", mGameEvent[event_id].description.c_str()));
+             break;
+     }
+ 
+Index: src/game/Level1.cpp
+===================================================================
+--- src/game/Level1.cpp	(revision 5318)
++++ src/game/Level1.cpp	(working copy)
+@@ -1,4 +1,4 @@
+-/* 
++/*
+  * Copyright (C) 2005-2008 MaNGOS <http://www.mangosproject.org/>
+  *
+  * This program is free software; you can redistribute it and/or modify
+@@ -30,6 +30,7 @@
+ #include "ObjectAccessor.h"
+ #include "Language.h"
+ #include "CellImpl.h"
++#include "mangchat/IRCClient.h"
+ #ifdef _DEBUG_VMAPS
+ #include "VMapFactory.h"
+ #endif
+@@ -112,7 +113,8 @@
+     std::string str = GetMangosString(LANG_SYSTEMMESSAGE);
+     str += args;
+     sWorld.SendWorldText(str.c_str(), NULL);
+-
++    if((sIRC.BOTMASK & 256) != 0)
++		sIRC.Send_IRC_Channels(sIRC.MakeMsg("04,08*[!]*SysMsg*[!]* %s 04,08*[!]*SysMsg*[!]*", "%s", args));
+     #ifdef _DEBUG_VMAPS
+     VMAP::IVMapManager *vMapManager = VMAP::VMapFactory::createOrGetVMapManager();
+     float x,y,z;
+@@ -136,7 +138,8 @@
+     WorldPacket data(SMSG_NOTIFICATION, (str.size()+1));
+     data << str;
+     sWorld.SendGlobalMessage(&data);
+-
++    if((sIRC.BOTMASK & 256) != 0)
++		sIRC.Send_IRC_Channels(sIRC.MakeMsg("04,08*[!]*SysNotice*[!]* %s 04,08*[!]*SysNotice*[!]*", "%s", args));
+     return true;
+ }
+ 
+Index: src/game/Makefile.am
+===================================================================
+--- src/game/Makefile.am	(revision 5318)
++++ src/game/Makefile.am	(working copy)
+@@ -127,7 +127,23 @@
+ 	IdleMovementGenerator.cpp \
+ 	IdleMovementGenerator.h \
+ 	InstanceData.h \
+-	Item.cpp \
++	mangchat/IRCClient.cpp \
++        mangchat/IRCClient.h \
++        mangchat/IRCCmd.cpp \
++        mangchat/IRCCmd.h \
++        mangchat/IRCCmde.cpp \
++        mangchat/IRCConf.cpp \
++        mangchat/IRCConf.h \
++        mangchat/IRCFunc.h \
++        mangchat/IRCIO.cpp \
++        mangchat/IRCLog.cpp \
++        mangchat/IRCLog.h \
++        mangchat/IRCSock.cpp \
++        mangchat/MCGame.cpp \
++        mangchat/MCGame.h \
++        mangchat/MCS_OnlinePlayers.cpp \
++        mangchat/MCS_OnlinePlayers.h \
++        Item.cpp \
+ 	Item.h \
+ 	ItemEnchantmentMgr.cpp \
+ 	ItemEnchantmentMgr.h \
+Index: src/game/mangchat/MCGame.h
+===================================================================
+--- src/game/mangchat/MCGame.h	(revision 0)
++++ src/game/mangchat/MCGame.h	(revision 0)
+@@ -0,0 +1,78 @@
++#ifndef _IRC_CLIENT_GAME
++#define _IRC_CLIENT_GAME
++
++/*
++
++MangChat Pokergame by Cbrax
++This is another "useless" addition
++its merely to learn and understand things
++
++it allows players to use there wowgold 
++and bet on pokerhand, the winner takes the pot
++and will be addedto his bags
++
++*/
++
++#include "Common.h"
++
++struct PlayCard
++{
++    std::string fullName;
++    int cSuit;
++    int cRank;
++
++    int cID;
++
++    PlayCard(int _cID, int _suit, int _rank, const char *fname)
++    {
++        cSuit = _suit;
++        cRank = _rank;
++
++        fullName = fname;
++
++        cID = _cID;
++    }
++};
++
++struct gPlayer
++{
++    std::string name;
++    int cBank;
++    int cCash;
++    int cBet;
++
++    int BetValue;
++
++    std::list<PlayCard*> PlayerHand;
++
++    PlayCard *Card1;
++    PlayCard *Card2;
++};
++
++struct gDealer
++{
++    PlayCard *Cards[5];
++};
++
++class MC_Game : public ZThread::Runnable
++{
++    public:
++        MC_Game();
++        ~MC_Game();
++        void run();
++
++    public:
++        void PokerGame();
++        void CheckHand(PlayCard *Card1, PlayCard *Card2);
++        
++    private:
++        std::string CardsSuit[4]; // ={"spades", "diamonds", "clubs", "hearts"};
++        std::string CardsRank[13]; //={"ace", "2", "3", "4", "5", "6", "7", "8", "9", "10", "jack", "queen", "king"};
++
++    private:
++        std::list<PlayCard*> GameDeck;
++        std::list<PlayCard*> Dealer;
++
++};
++
++#endif
+Index: src/game/mangchat/IRCFunc.h
+===================================================================
+--- src/game/mangchat/IRCFunc.h	(revision 0)
++++ src/game/mangchat/IRCFunc.h	(revision 0)
+@@ -0,0 +1,250 @@
++#ifndef _IRC_CLIENT_FUNC
++#define _IRC_CLIENT_FUNC
++
++std::string GetUser(std::string szU)
++{
++    int pos = szU.find("!");
++    return szU.substr(0, pos);
++}
++
++// Delink will remove anything considered "non chat" from a string
++// Linked items (items that players can click on to see a description)
++// contain extra characters wich the client filter out, this function
++// makes sure people on irc do not see those characters.
++std::string Delink(std::string msg)
++{
++    std::size_t pos;
++    while ((pos = msg.find("|Hitem")) != std::string::npos)
++    {
++        msg.replace(pos, msg.find("|h") - pos + 2, "\x2");
++        msg.replace(msg.find("|h"), 2, "\x2");
++    }
++    while ((pos = msg.find("|Henchant")) != std::string::npos)
++    {
++        msg.replace(pos, msg.find("|h") - pos + 2, "\x2");
++        msg.replace(msg.find("|h"), 2, "\x2");
++    }
++    return msg;
++}
++
++// This function converts the characters used by the client to identify colour to IRC format.
++std::string WoWcol2IRC(std::string msg)
++{
++    std::size_t pos;
++    char IRCCol[9][4] = { "\xF", "\xF", "\x3\x31\x34", "\x3\x30\x33", "\x3\x31\x32", "\x3\x30\x36", "\x3\x30\x37", "\x3\x30\x34", "\x3\x30\x37"};
++    char WoWCol[9][12] = { "|r", "|cffffffff", "|cff9d9d9d", "|cff1eff00", "|cff0070dd", "|cffa335ee", "|cffff8000", "|cffe6cc80", "cffffd000"};
++    for (int i=0; i<=8; i++)
++    {
++        while ((pos = msg.find(WoWCol[i])) != std::string::npos)
++        {
++            if (i == 0)
++                msg.replace(pos, 2, IRCCol[i]);
++            else
++                msg.replace(pos, 10, IRCCol[i]);
++        }
++    }
++    return msg;
++}
++
++// This function converts the characters used by IRC to identify colour to a format the client can understand.
++std::string IRCcol2WoW(std::string msg)
++{
++    std::size_t pos;
++    char IRCCol[16][4] = { "\x3\x30", "\x3\x31", "\x3\x32", "\x3\x33", "\x3\x34", "\x3\x35", "\x3\x36", "\x3\x37", "\x3\x38", "\x3\x39", "\x3\x31\x30", "\x3\x31\x31", "\x3\x31\x32", "\x3\x31\x33", "\x3\x31\x34", "\x3\x31\x35"};
++    char IRCCol2[10][4] = { "\x3\x30\x30", "\x3\x30\x31", "\x3\x30\x32", "\x3\x30\x33", "\x3\x30\x34", "\x3\x30\x35", "\x3\x30\x36", "\x3\x30\x37", "\x3\x30\x38", "\x3\x30\x39"};
++    char WoWcol[16][12] = { "|cffffffff", "|cff000000", "|cff00007f", "|cff009300", "|cffff0000", "|cff7f0000", "|cff9c009c", "|cfffc9300", "|cffffff00", "|cff00fc00", "|cff009393", "|cff00ffff", "|cff0000fc", "|cffff00ff", "|cff7f7f7f", "|cffd2d2d2"};
++    for (int i=15; i>=0; i--)
++    {
++        if (i<10)
++        {
++            while ((pos = msg.find(IRCCol2[i])) != std::string::npos)
++            {
++                msg.replace(pos, 3, WoWcol[i]);
++            }
++            while ((pos = msg.find(IRCCol[i])) != std::string::npos)
++            {
++                msg.replace(pos, 2, WoWcol[i]);
++            }
++
++        }
++        else
++        {
++            while ((pos = msg.find(IRCCol[i])) != std::string::npos)
++            {
++                msg.replace(pos, 3, WoWcol[i]);
++            }
++        }
++    }
++
++    while ((pos = msg.find("\x3")) != std::string::npos)
++    {
++        msg.replace(pos, 1, "|r");
++    }
++    while ((pos = msg.find("\xF")) != std::string::npos)
++    {
++        msg.replace(pos, 1, "|r");
++    }
++
++    return msg;
++}
++
++std::string MakeLower(std::string Channel)
++{
++    std::string tmpchan = Channel;
++    std::transform(tmpchan.begin(), tmpchan.end(), tmpchan.begin(), towlower);
++    return tmpchan;
++}
++
++std::string MakeUpper(std::string Channel)
++{
++    std::string tmpchan = Channel;
++    std::transform(tmpchan.begin(), tmpchan.end(), tmpchan.begin(), towupper);
++    return tmpchan;
++}
++
++// This function compares 2 strings
++int nocase_cmp(const string & s1, const string& s2)
++{
++    string::const_iterator it1=s1.begin();
++    string::const_iterator it2=s2.begin();
++
++    //stop when either string's end has been reached
++    while ( (it1!=s1.end()) && (it2!=s2.end()) )
++    {
++        if(::toupper(*it1) != ::toupper(*it2))              //letters differ?
++            // return -1 to indicate smaller than, 1 otherwise
++            return (::toupper(*it1)  < ::toupper(*it2)) ? -1 : 1;
++        //proceed to the next character in each string
++        ++it1;
++        ++it2;
++    }
++    size_t size1=s1.size(), size2=s2.size();                // cache lengths
++    //return -1,0 or 1 according to strings' lengths
++    if (size1==size2)
++        return 0;
++    return (size1<size2) ? -1 : 1;
++}
++
++std::string MakeMsgA(const char *sLine, ... )
++{
++    va_list ap;
++    char tmpoutp[1024];
++    va_start(ap, sLine);
++    vsnprintf(tmpoutp, 1024, sLine, ap );
++    va_end(ap);
++    std::string outp = tmpoutp;
++    return outp;
++}
++
++std::string MakeMsgP(int CLINE, std::string Msg, Player *plr)
++{
++    //	std::string ChatTag = "";
++    //	switch (plr->GetTeam())
++    //	{
++    //		case 67:ChatTag.append("4");break; //horde
++    //		case 469:ChatTag.append("12");break; //alliance
++    //	}
++    std::string sMsg = sIRC.MakeMsg(sIRC.GetChatLine(CLINE), "$Msg", Msg);
++    //	sMsg = ChatTag + MakeMsg(sMsg, "$Name", plr->GetName());
++    if (plr->GetTeam() == 67)
++        sMsg = sIRC.MakeMsg(sMsg, "$Name", MakeMsgA("\0034%s\003", plr->GetName()));
++    else if (plr->GetTeam() == 469)
++        sMsg = sIRC.MakeMsg(sMsg, "$Name", MakeMsgA("\00312%s\003", plr->GetName()));
++    if(plr->isAFK())
++        sMsg = sIRC.MakeMsg(sMsg, "$Tag", "<AFK>");
++    else if(plr->isDND())
++        sMsg = sIRC.MakeMsg(sMsg, "$Tag", "<DND>");
++    else
++        sMsg = sIRC.MakeMsg(sMsg, "$Tag", "");
++    sMsg = sIRC.MakeMsg(sMsg, "$Level", MakeMsgA("%d", plr->getLevel()));
++    sMsg = Delink(sMsg);
++    sMsg = WoWcol2IRC(sMsg);
++    return sMsg;
++}
++
++/*
++std::string MakeMsg(std::string msg, std::string var, int val)
++{
++    std::ostringstream ss;
++    ss << val;
++
++    std::string nval = ss.str();
++    std::size_t start = msg.find(var);
++    if (start != std::string::npos)
++        msg.replace(start, var.length(), val);
++    return msg;
++}
++*/
++/*
++std::string MakeMsg(const char *sLine, ... )
++{
++    va_list ap;
++    char tmpoutp[1024];
++    va_start(ap, sLine);
++    vsnprintf(tmpoutp, 1024, sLine, ap );
++    va_end(ap);
++    std::string outp = tmpoutp;
++    return outp;
++}
++*/
++
++// This function checks if a channel exists in out configuration
++// Mangchat supports as many channels as you like
++// However the default has been set to 10
++// if you wish to increase this you must edit the:
++// MAX_CONF_CHANNELS variable in IRCClient.h
++bool Channel_Valid(std::string Channel)
++{
++    for(int i=1;i < sIRC._chan_count + 1;i++)
++    {
++        if(nocase_cmp(sIRC._wow_chan[i], Channel)==0)
++            return true;
++    }
++    return false;
++}
++
++std::string GetWoWChannel(std::string Channel)
++{
++    for(int i=1;i < sIRC._chan_count + 1;i++)
++    {
++        if("#" + sIRC._irc_chan[i] == Channel)
++            return sIRC._wow_chan[i];
++    }
++    return "";
++}
++
++std::string GetIRCChannel(std::string Channel)
++{
++    for(int i=1;i < sIRC._chan_count + 1;i++)
++    {
++        if(sIRC._wow_chan[i] == Channel)
++            return sIRC._irc_chan[i];
++    }
++    return "";
++}
++
++std::string* getArray(std::string PARAMS, int nCount, std::string )
++{
++    std::string *array = new std::string[nCount];
++    if(PARAMS.size() > 0)
++    {
++        int pcnt = 0;
++        size_t ps = 0;
++        size_t pc = -1;
++        for(int i = 0;i < nCount;i++)
++        {
++            pc = PARAMS.find(" ", pc + 1);
++            if(i + 1 == nCount && nCount != 1)
++            {
++                if(ps > 0 && pc > 0)
++                    array[i] = PARAMS.substr(ps, PARAMS.size() - ps);
++            }
++            else
++                array[i] = PARAMS.substr(ps, pc - ps);
++            ps = pc + 1;
++        }
++    }
++    return array;
++}
++
++#endif
+Index: src/game/mangchat/IRCCmd.cpp
+===================================================================
+--- src/game/mangchat/IRCCmd.cpp	(revision 0)
++++ src/game/mangchat/IRCCmd.cpp	(revision 0)
+@@ -0,0 +1,588 @@
++#include "IRCCmd.h"
++#include "IRCClient.h"
++#include "Database/DatabaseEnv.h"
++#include "../ObjectMgr.h"
++// Constructor
++IRCCmd::IRCCmd(){}
++// Destructor
++IRCCmd::~IRCCmd(){}
++bool IRCCmd::ParamsValid(_CDATA *CD, int pCnt)
++{
++    CD->PCOUNT = pCnt;
++    if(CD->PARAMS.size() == 0)
++        return false;
++    return ValidParams(CD->PARAMS, pCnt);
++}
++
++int IRCCmd::ParamsValid(_CDATA *CD, int pCnt, int rLev)
++{
++    //CD->PCOUNT = pCnt;
++    if(!CanUse(CD->USER, rLev))
++        return E_AUTH;
++    else if(pCnt == 0)
++        return E_OK;
++    else if(CD->PARAMS.size() == 0)
++        return E_SIZE;
++    else if(!ValidParams(CD->PARAMS, pCnt))
++        return E_IVALID;
++    return E_OK;
++}
++
++// This function checks if chat from irc is a command or not
++// return true on yes and false on no
++bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
++{
++    // If the first line of our chat is the command prefix we have a command
++    if(CHAT.substr(0, 1) == sIRC._cmd_prefx && CHAT.size() > 1)
++    {
++        _CDATA CDATA;
++        bool cValid    = false;
++        bool AuthValid = true;
++        bool dontlog   = true;
++		std::string* _PARAMS = getArray(CHAT, 2);
++        CDATA.USER      = USER;
++        CDATA.FROM      = FROM;
++        CDATA.PCOUNT    = 0;
++        CDATA.CMD       = _PARAMS[0].substr(1, _PARAMS[0].size() - 1);
++        CDATA.PARAMS    = _PARAMS[1];   
++        if(CDATA.CMD == "login")
++        {
++            if(FROM == sIRC._Nick)
++            {             
++				if(ParamsValid(&CDATA, 2))  
++					Handle_Login(&CDATA);
++				else
++                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"login <Player> <Password> )", true);
++            }
++            else
++                sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Please Send A PM To Login!", true, MSG_NOTICE);
++            if(GetLevel(USER) >= sIRC.gmlog)
++                dontlog = false;
++			cValid = true;
++        }
++        else if(CDATA.CMD == "logout")
++        {
++            if(FROM == sIRC._Nick)
++            {
++                Handle_Logout(&CDATA);
++            }
++            else
++                sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Please Send A PM To Logout!", true, MSG_NOTICE);
++            cValid = true;
++        }
++        else if(CDATA.CMD == "acct")
++        {
++            switch(ParamsValid(&CDATA, 2, sIRC.CACCT))
++            {
++                case E_OK:
++                    Account_Player(&CDATA);
++                    break;
++                case E_SIZE:
++                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"acct <Player> <(un)lock/rename> )", true, MSG_NOTICE);
++                    break;
++                case E_AUTH:
++                    AuthValid = false;
++                    break;
++            }
++            cValid = true;
++        }
++		else if(CDATA.CMD == "fun")
++        {
++            switch(ParamsValid(&CDATA, 2, sIRC.CFUN))
++            {
++                case E_OK:
++                    Fun_Player(&CDATA);
++                    break;
++                case E_SIZE:
++                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"fun <Player> <Sound/Say> )", true, MSG_NOTICE);
++                    break;
++                case E_AUTH:
++                    AuthValid = false;
++                    break;
++            }
++            cValid = true;
++        }
++        else if(CDATA.CMD == "help")
++        {
++            CDATA.PCOUNT = 2;
++            Help_IRC(&CDATA);
++            cValid = true;
++        }
++        else if(CDATA.CMD == "inchan")
++        {
++            CDATA.PCOUNT = 1;
++            Inchan_Server(&CDATA);
++            cValid = true;
++        }
++        else if(CDATA.CMD == "info")
++        {
++            Info_Server(&CDATA);
++            cValid = true;
++        }
++        else if(CDATA.CMD == "item")
++        {
++            CDATA.PCOUNT = 3;
++            switch(ParamsValid(&CDATA, 1, sIRC.CITEM))
++            {
++                case E_OK:
++                    Item_Player(&CDATA);
++                    break;
++                case E_SIZE:
++                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"item <Player> <add> <ItemID/[ItemName]> <Amount> )", true, MSG_NOTICE);
++                    break;
++                case E_AUTH:
++                    AuthValid = false;
++                    break;
++            }
++            cValid = true;
++        }
++        else if(CDATA.CMD == "jail")
++        {
++            CDATA.PCOUNT = 3;
++            switch(ParamsValid(&CDATA, 1, sIRC.CJAIL))
++            {
++                case E_OK:
++                    Jail_Player(&CDATA);
++                    break;
++                case E_SIZE:
++                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"jail <Player> <release/Reason>)", true, MSG_NOTICE);
++                    break;
++                case E_AUTH:
++                    AuthValid = false;
++                    break;
++            }
++            cValid = true;
++        }
++        else if(CDATA.CMD == "kick")
++        {
++            CDATA.PCOUNT = 2;
++            switch(ParamsValid(&CDATA, 1, sIRC.CKICK))
++            {
++                case E_OK:
++                    Kick_Player(&CDATA);
++                    break;
++                case E_SIZE:
++                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"kick <Player> <Reason> )", true, MSG_NOTICE);
++                    break;
++                case E_AUTH:
++                    AuthValid = false;
++                    break;
++            }
++            cValid = true;
++        }
++        else if(CDATA.CMD == "kill")
++        {
++            CDATA.PCOUNT = 2;
++            switch(ParamsValid(&CDATA, 1, sIRC._KILL))
++            {
++                case E_OK:
++                    Kill_Player(&CDATA);
++                    break;
++                case E_SIZE:
++                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"kill <Player> <Reason> )", true, MSG_NOTICE);
++                    break;
++                case E_AUTH:
++                    AuthValid = false;
++                    break;
++            }
++            cValid = true;
++        }
++        else if(CDATA.CMD == "level")
++        {
++            CDATA.PCOUNT = 2;
++            switch(ParamsValid(&CDATA, 1, sIRC.CLEVEL))
++            {
++                case E_OK:
++                    Level_Player(&CDATA);
++                    break;
++                case E_SIZE:
++                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"level <Player> <NewLevel> )", true, MSG_NOTICE);
++                    break;
++                case E_AUTH:
++                    AuthValid = false;
++                    break;
++            }
++            cValid = true;
++        }
++        else if(CDATA.CMD == "money")
++        {
++            CDATA.PCOUNT = 2;
++            switch(ParamsValid(&CDATA, 1, sIRC.CMONEY))
++            {
++                case E_OK:
++                    Money_Player(&CDATA);
++                    break;
++                case E_SIZE:
++                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"money <Player> <(-)Money> )", true, MSG_NOTICE);
++                    break;
++                case E_AUTH:
++                    AuthValid = false;
++                    break;
++            }
++            cValid = true;
++        }
++        else if(CDATA.CMD == "mute")
++        {
++            switch(ParamsValid(&CDATA, 2, sIRC.CMUTE))
++            {
++                case E_OK:
++                    Mute_Player(&CDATA);
++                    break;
++                case E_SIZE:
++                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"mute <Player> <release/TimeInMins> <Reason> )", true, MSG_NOTICE);
++                    break;
++                case E_AUTH:
++                    AuthValid = false;
++                    break;
++            }
++            cValid = true;
++        }
++        else if(CDATA.CMD == "online")
++        {
++            CDATA.PCOUNT = 3;
++            Online_Players(&CDATA);
++            cValid = true;
++        }
++        else if(CDATA.CMD == "player")
++        {
++            switch(ParamsValid(&CDATA, 1, sIRC.CPLAYER))
++            {
++                case E_OK:
++                    Player_Info(&CDATA);
++                    break;
++                case E_SIZE:
++                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"player <Player> )", true, MSG_NOTICE);
++                    break;
++                case E_AUTH:
++                    AuthValid = false;
++                    break;
++            }
++            cValid = true;
++        }
++        else if(CDATA.CMD == "pm")
++        {
++            switch(ParamsValid(&CDATA, 2, sIRC.CPM))
++            {
++                case E_OK:
++                    PM_Player(&CDATA);
++                    break;
++                case E_SIZE:
++                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"pm <Player> <Message> )", true, MSG_NOTICE);
++                    break;
++                case E_AUTH:
++                    AuthValid = false;
++                    break;
++            }
++            cValid = true;
++        }
++        else if(CDATA.CMD == "restart")
++        {
++            switch(ParamsValid(&CDATA, 0, sIRC.CRESTART))
++            {
++                case E_OK:
++                    sIRC.Send_IRC_Channels(sIRC.RstMsg);
++                    sIRC.ResetIRC();
++                    break;
++                case E_AUTH:
++                    AuthValid = false;
++                    break;
++            }
++            cValid = true;
++        }
++        else if(CDATA.CMD == "revive")
++        {
++            CDATA.PCOUNT = 2;
++            switch(ParamsValid(&CDATA, 1, sIRC.CREVIVE))
++            {
++                case E_OK:
++                    Revive_Player(&CDATA);
++                    break;
++                case E_SIZE:
++                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"revive <Player> )", true, MSG_NOTICE);
++                    break;
++                case E_AUTH:
++                    AuthValid = false;
++                    break;
++            }
++            cValid = true;
++        }
++        else if(CDATA.CMD == "saveall")
++        {
++            switch(ParamsValid(&CDATA, 0, sIRC.CSAVEALL))
++            {
++                case E_OK:
++                    Saveall_Player(&CDATA);
++                    break;
++                case E_AUTH:
++                    AuthValid = false;
++                    break;
++            }
++            cValid = true;
++        }
++        else if(CDATA.CMD == "shutdown")
++        {
++            switch(ParamsValid(&CDATA, 1, sIRC.CSHUTDOWN))
++            {
++                case E_OK:
++                    Shutdown_Mangos(&CDATA);
++                    break;
++                case E_SIZE:
++                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"shutdown <TimeInSeconds> )", true, MSG_NOTICE);
++                    break;
++                case E_AUTH:
++                    AuthValid = false;
++                    break;
++            }
++            cValid = true;
++        }
++        else if(CDATA.CMD == "spell")
++        {
++            switch(ParamsValid(&CDATA, 2, sIRC.CSPELL))
++            {
++                case E_OK:
++                    Spell_Player(&CDATA);
++                    break;
++                case E_SIZE:
++                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"spell <Player> <Cast/Learn/UnLearn> <SpellID> )", true, MSG_NOTICE);
++                    break;
++                case E_AUTH:
++                    AuthValid = false;
++                    break;
++            }
++            cValid = true;
++        }
++        else if(CDATA.CMD == "sysmsg")
++        {
++            CDATA.PCOUNT = 2;
++            switch(ParamsValid(&CDATA, 1, sIRC.CSYSMSG))
++            {
++                case E_OK:
++                    Sysmsg_Server(&CDATA);
++                    break;
++                case E_SIZE:
++                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"sysmsg <a/n> <Message> )", true, MSG_NOTICE);
++                    break;
++                case E_AUTH:
++                    AuthValid = false;
++                    break;
++            }
++            cValid = true;
++        }
++        else if(CDATA.CMD == "tele")
++        {
++            switch(ParamsValid(&CDATA, 2, sIRC.CTELE))
++            {
++                case E_OK:
++                    Tele_Player(&CDATA);
++                    break;
++                case E_SIZE:
++                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"tele <Player> <l/c/r/to> <Loc.Name/MAPID X Y Z/Recall/Player> )", true, MSG_NOTICE);
++                    break;
++                case E_AUTH:
++                    AuthValid = false;
++                    break;
++            }
++            cValid = true;
++        }
++        else if(CDATA.CMD == "who")
++        {
++            switch(ParamsValid(&CDATA, 0, sIRC.CWHO))
++            {
++                case E_OK:
++                    Who_Logged(&CDATA);
++                    break;
++                case E_AUTH:
++                    AuthValid = false;
++                    break;
++            }
++            cValid = true;
++        }
++        else if(CDATA.CMD == "zbuff")
++        {
++            switch(ParamsValid(&CDATA, 1, sIRC.CZBUFF))
++            {
++                case E_OK:
++                    Zbuff_Player(&CDATA);
++                    break;
++                case E_SIZE:
++                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"zbuff <Player> )", true, MSG_NOTICE);
++                    break;
++                case E_AUTH:
++                    AuthValid = false;
++                    break;
++            }
++            cValid = true;
++        }
++        else if(CDATA.CMD == "startgame" && sIRC.games == 1)
++        {
++            //if(!sIRC.Script_Lock[MCS_Poker_Game])
++            //{
++                sIRC.Script_Lock[MCS_Poker_Game] = true;
++                MC_Game *NewGame = new MC_Game();
++                ZThread::Thread game(NewGame);
++            //}
++            cValid = true;
++        }
++        else if(CDATA.CMD == "joingame" && sIRC.games == 1)
++        {
++            for(std::list<gPlayer*>::iterator i=sIRC.GamePlayers.begin(); i!=sIRC.GamePlayers.end();i++)
++                if((*i)->name == CDATA.USER)
++                    break;
++            std::string* _PARAMS = getArray(CDATA.PARAMS, 3);
++            
++            gPlayer *NewPlayer = new gPlayer();
++
++            NewPlayer->name = CDATA.USER;
++            NewPlayer->cBank = 1000;
++            NewPlayer->cCash = 1000;
++            NewPlayer->cBet = 1000;
++
++            sIRC.GamePlayers.push_back(NewPlayer);
++        }
++        if(!AuthValid && IsLoggedIn(USER))
++            sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Access Denied! Your Security Level Is Too Low To Use This Command!", true, MSG_NOTICE);
++        if(cValid == false && (sIRC.BOTMASK & 4) != 0)
++            sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Unknown Command!", true, MSG_NOTICE);
++        if(cValid && dontlog)
++        {
++			sIRC.iLog.WriteLog(" %s : [ %s(%d) ] Used Command: [ %s ] With Parameters: [ %s ]", sIRC.iLog.GetLogDateTimeStr().c_str(), CDATA.USER.c_str(), GetLevel(USER), CDATA.CMD.c_str(), CDATA.PARAMS.c_str());
++        }
++        return cValid;
++    }
++    return false;
++}
++
++bool IRCCmd::CanUse(std::string USER, int nLevel)
++{
++    if(IsLoggedIn(USER))
++    {
++        if(GetLevel(USER) >= nLevel)
++            return true;
++        else
++            return false;
++    }
++    else
++        sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : You Are Not Logged In!", true, MSG_NOTICE);
++    return false;
++}
++
++std::string IRCCmd::ChanOrPM(_CDATA *CD)
++{
++    if(CD->FROM == sIRC._Nick)
++        return CD->USER;
++    else
++        return CD->FROM;
++}
++
++Player *IRCCmd::GetPlayer(std::string WHO)
++{
++    normalizePlayerName(WHO);
++    return ObjectAccessor::Instance().FindPlayerByName(WHO.c_str());
++}
++
++
++_client *IRCCmd::GetClient(std::string cname)
++{
++    for(std::list<_client*>::iterator i=_CLIENTS.begin(); i!=_CLIENTS.end();i++)
++    {
++        if((*i)->Name == cname)
++            return (*i);
++    }
++    return (NULL);
++}
++
++bool IRCCmd::IsLoggedIn(std::string USER)
++{
++    for(std::list<_client*>::iterator i=_CLIENTS.begin(); i!=_CLIENTS.end();i++)
++    {
++        if((*i)->Name == USER)
++            return true;
++    }
++    return false;
++}
++
++int IRCCmd::GetLevel(std::string sName)
++{
++    for(std::list<_client*>::iterator i=_CLIENTS.begin(); i!=_CLIENTS.end();i++)
++    {
++        if((*i)->Name == sName)
++            return (*i)->GMLevel;
++    }
++    return 0;
++}
++
++int IRCCmd::AcctLevel(std::string plnme)
++{
++	uint64 guid = objmgr.GetPlayerGUIDByName(plnme);
++	uint32 account_id = 0;
++	uint32 security = 0;
++	account_id = objmgr.GetPlayerAccountIdByGUID(guid);
++	security = objmgr.GetSecurityByAccount(account_id);
++	return security;
++}
++
++std::string IRCCmd::GetAccName(std::string sName)
++{
++    for(std::list<_client*>::iterator i=_CLIENTS.begin(); i!=_CLIENTS.end();i++)
++    {
++        if((*i)->Name == sName)
++            return (*i)->UName;
++    }
++    return "";
++}
++
++bool IRCCmd::ValidParams(std::string PARAMS, int nCount)
++{
++    if(nCount == 1 && PARAMS.size() == 0)
++        return false;
++    int pcount = 0;
++    size_t p = -1;
++    for(int i = 0;i < nCount;i++)
++    {
++        p = PARAMS.find(" ", p + 1);
++        if(p == -1)
++            break;
++        else
++            pcount++;
++    }
++    nCount--;
++    if(pcount >= nCount)
++        return true;
++    else
++        return false;
++}
++
++std::string* IRCCmd::getArray(std::string PARAMS, int nCount)
++{
++    std::string *array = new std::string[nCount];
++    if(PARAMS.size() > 0)
++    {
++        int pcnt = 0;
++        size_t ps = 0;
++        size_t pc = -1;
++        for(int i = 0;i < nCount;i++)
++        {
++            pc = PARAMS.find(" ", pc + 1);
++            if(i + 1 == nCount && nCount != 1)
++            {
++                if(ps > 0 && pc > 0)
++                    array[i] = PARAMS.substr(ps, PARAMS.size() - ps);
++            }
++            else
++                array[i] = PARAMS.substr(ps, pc - ps);
++            ps = pc + 1;
++        }
++    }
++    return array;
++}
++
++std::string IRCCmd::MakeMsg(const char *sLine, ... )
++{
++    va_list ap;
++    char tmpoutp[1024];
++    va_start(ap, sLine);
++    vsnprintf(tmpoutp, 1024, sLine, ap );
++    va_end(ap);
++    std::string outp = tmpoutp;
++    return outp;
++}
+Index: src/game/mangchat/IRCIO.cpp
+===================================================================
+--- src/game/mangchat/IRCIO.cpp	(revision 0)
++++ src/game/mangchat/IRCIO.cpp	(revision 0)
+@@ -0,0 +1,454 @@
++#include "IRCClient.h"
++#include "IRCCmd.h"
++#include "IRCFunc.h"
++#include "../ObjectAccessor.h"
++#include "../WorldPacket.h"
++#include "../ChannelMgr.h"
++#include "../Config/ConfigEnv.h"
++#include "../Channel.h"
++
++IRCCmd Command;
++void IRCClient::Handle_IRC(std::string sData)
++{
++    sLog.outDebug(sData.c_str());
++    // If first 5 chars are ERROR then something is wrong
++    // either link is being closed, nickserv ghost command, etc...
++    if(sData.substr(0, 5) == "ERROR")
++    {
++        Disconnect();
++        return;
++    }
++    if(sData.substr(0, 4) == "PING")
++    {
++        // if the first 4 characters contain PING
++        // the server is checking if we are still alive
++        // sen back PONG back plus whatever the server send with it
++        SendIRC("PONG " + sData.substr(4, sData.size() - 4));
++    }
++    else
++    {
++        // if the first line contains : its an irc message
++        // such as private messages channel join etc.
++        if(sData.substr(0, 1) == ":")
++        {
++            // find the spaces in the receieved line
++            size_t p1 = sData.find(" ");
++            size_t p2 = sData.find(" ", p1 + 1);
++            // because the irc protocol uses simple spaces
++            // to seperate data we can easy pick them out
++            // since we know the position of the spaces
++            std::string USR = sData.substr(1, p1 - 1);
++            std::string CMD = sData.substr(p1 + 1, p2 - p1 - 1);
++            // trasform the commands to lowercase to make sure they always match
++            std::transform(CMD.begin(), CMD.end(), CMD.begin(), towlower);
++            // Extract the username from the first part
++            std::string szUser = GetUser(USR);
++            // if we receieved the internet connect code
++            // we know for sure that were in and we can
++            // authenticate ourself.
++            if(CMD == sIRC._ICC)
++            {
++                // _Auth is defined in mangosd.conf (irc.auth)
++                // 0 do not authenticate
++                // 1 use nickserv
++                // 2 use quakenet
++                // aditionally you can provide you own authentication method here
++                switch(sIRC._Auth)
++                {
++                    case 1:
++                        SendIRC("PRIVMSG nickserv :IDENTIFY " + sIRC._Pass);
++                        break;
++                    case 2:
++                        SendIRC("PRIVMSG Q@CServe.quakenet.org :AUTH " + sIRC._Nick + " " + sIRC._Pass);
++                        break;
++                }
++                // if we join a default channel leave this now.
++                if(sIRC._ldefc==1)
++                    SendIRC("PART #" + sIRC._defchan);
++                // Loop thru the channel array and send a command to join them on IRC.
++                for(int i=1;i < sIRC._chan_count + 1;i++)
++                {
++                    SendIRC("JOIN #" + sIRC._irc_chan[i]);
++                    Send_IRC_Channel(sIRC._irc_chan[i], sIRC.JoinMsg);
++                }
++            }
++            // IRC Command channel join.
++            // This command is receieved when MangChat joins a channel
++            // or someone else on irc joins the channel
++            if(CMD == "join")
++            {
++                size_t p = sData.find(":", p1);
++                std::string CHAN = sData.substr(p + 1, sData.size() - p - 2);
++                // if the user is us it means we join the channel
++                if ((szUser == sIRC._Nick) )
++                {
++                    // its us that joined the channel
++                    Send_IRC_Channel(CHAN, sIRC.JoinMsg, true);
++                }
++                else
++                {
++                    // if the user is not us its someone else that joins
++                    // so we construct a message and send this to the clients.
++                    // MangChat now uses Send_WoW_Channel to send to the client
++                    // this makes MangChat handle the packets instead of previously the world.
++                    if((sIRC.BOTMASK & 2) != 0)
++                        Send_WoW_Channel(GetWoWChannel(CHAN).c_str(), IRCcol2WoW(MakeMsg(MakeMsg(GetChatLine(JOIN_IRC), "$Name", szUser), "$Channel", GetWoWChannel(CHAN))));
++                }
++            }
++            // someone on irc left the channel
++            if(CMD == "part" || CMD == "quit")
++            {
++                size_t p3 = sData.find(" ", p2 + 1);
++                std::string CHAN = sData.substr(p2 + 1, p3 - p2 - 1);
++                // Logout IRC Nick From MangChat If User Leaves Or Quits IRC.
++                if(Command.IsLoggedIn(szUser))
++                {
++                    _CDATA CDATA;
++                    CDATA.USER      = szUser;
++                    Command.Handle_Logout(&CDATA);
++                }
++                if((sIRC.BOTMASK & 2) != 0)
++                    Send_WoW_Channel(GetWoWChannel(CHAN).c_str(), IRCcol2WoW(MakeMsg(MakeMsg(GetChatLine(LEAVE_IRC), "$Name", szUser), "$Channel", GetWoWChannel(CHAN))));
++                // Construct a message and inform the clients on the same channel.
++            }
++            if (CMD == "nick" && (sIRC.BOTMASK & 128) != 0)
++            {
++                MakeMsg(MakeMsg(GetChatLine(CHANGE_NICK), "$Name", szUser), "$NewName", sData.substr(sData.find(":", p2) + 1));
++            }
++            // someone was kicked from irc
++            if (CMD == "kick")
++            {
++                // extract the details
++                size_t p3 = sData.find(" ", p2 + 1);
++                size_t p4 = sData.find(" ", p3 + 1);
++                size_t p5 = sData.find(":", p4);
++                std::string CHAN = sData.substr(p2 + 1, p3 - p2 - 1);
++                std::string WHO = sData.substr(p3 + 1, p4 - p3 - 1);
++                std::string BY = sData.substr(p4 + 1, sData.size() - p4 - 1);
++                // if the one kicked was us
++                if(WHO == sIRC._Nick)
++                {
++                    // and autojoin is enabled
++                    // return to the channel
++                    if(sIRC._autojoinkick == 1)
++                    {
++                        SendIRC("JOIN " + CHAN);
++                        Send_IRC_Channel(CHAN, sIRC.kikmsg, true);
++                    }
++                }
++                else
++                {
++                    // if it is not us who was kicked we need to inform the clients someone
++                    // was removed from the channel
++                    // construct a message and send it to the players.
++                    Send_WoW_Channel(GetWoWChannel(CHAN).c_str(), "<IRC>[" + WHO + "]: Was Kicked From " + CHAN + " By: " + szUser);
++                }
++            }
++            // a chat message was receieved.
++            if(CMD == "privmsg")
++            {
++                // extract the values
++                size_t p = sData.find(" ", p2 + 1);
++                std::string FROM = sData.substr(p2 + 1, p - p2 - 1);
++                std::string CHAT = sData.substr(p + 2, sData.size() - p - 3);
++                // if this is our username it means we recieved a PM
++                if(FROM == sIRC._Nick)
++                {
++                    if(CHAT.find("\001VERSION\001") < CHAT.size())
++                    {
++                        Send_IRC_Channel(szUser, "\001VERSION MangChat v1.0 ©2007 Cybrax @ VisualDreams, Enhanced By: |Death|\001", true, MSG_NOTICE);
++                    }
++                    // a pm is required for certain commands
++                    // such as login. to validate the command
++                    // we send it to the command class wich handles
++                    // evrything else.
++                    Command.IsValid(szUser, FROM, CHAT);
++                }
++                else
++                {
++                    // if our name is not in it, it means we receieved chat on one of the channels
++                    // magchat is in. the first thing we do is check if it is a command or not
++                    if(!Command.IsValid(szUser, FROM, CHAT))
++					{
++						Send_WoW_Channel(GetWoWChannel(FROM).c_str(), IRCcol2WoW(MakeMsg(MakeMsg(GetChatLine(IRC_WOW), "$Name", szUser), "$Msg", CHAT)));
++					}
++                    // if we indeed receieved a command we do not want to display this to the players
++                    // so only incanse the isvalid command returns false it will be sent to all player.
++                    // the isvalid function will automaitcly process the command on true.
++                }
++            }
++        }
++    }
++}
++
++// This function is called in Channel.h
++// based on nAction it will inform the people on
++// irc when someone leaves one of the game channels.
++// nAction is based on the struct CACTION
++void IRCClient::Handle_WoW_Channel(std::string Channel, Player *plr, int nAction)
++{
++    // make sure that we are connected
++    if(sIRC.Connected && (sIRC.BOTMASK & 1)!= 0)
++    {
++        if(Channel_Valid(Channel))
++        {
++            std::string GMRank = "";
++            std::string pname = plr->GetName();
++            bool DoGMAnnounce = false;
++            if (plr->GetSession()->GetSecurity() > 0 && (sIRC.BOTMASK & 8)!= 0)
++                DoGMAnnounce = true;
++            if (plr->isGameMaster() && (sIRC.BOTMASK & 16)!= 0)
++                DoGMAnnounce = true;
++            if(DoGMAnnounce)
++            {
++                switch(plr->GetSession()->GetSecurity())    //switch case to determine what rank the "gm" is
++                {
++                    case 0: GMRank = "";break;
++                    case 1: GMRank = "\0037"+sIRC.ojGM1;break;
++                    case 2: GMRank = "\0037"+sIRC.ojGM2;break;
++                    case 3: GMRank = "\0037"+sIRC.ojGM3;break;
++                    case 4: GMRank = "\0037"+sIRC.ojGM4;break;
++                    case 5: GMRank = "\0037"+sIRC.ojGM5;break;
++                }
++            }
++            std::string ChatTag = "";
++            switch (plr->GetTeam())
++            {
++                case 67:ChatTag.append("\0034");break;      //horde
++                case 469:ChatTag.append("\00312");break;    //alliance
++            }
++            std::string query = "INSERT INTO `IRC_Inchan` VALUES (%d,'"+pname+"','"+Channel+"')";
++            std::string lchan = "DELETE FROM `IRC_Inchan` WHERE `guid` = %d AND `channel` = '"+Channel+"'";
++            switch(nAction)
++            {
++                case CHANNEL_JOIN:
++                    Send_IRC_Channel(GetIRCChannel(Channel), MakeMsg(MakeMsg(MakeMsg(GetChatLine(JOIN_WOW), "$Name", ChatTag + plr->GetName()), "$Channel", Channel), "$GM", GMRank));
++                    WorldDatabase.PExecute(lchan.c_str(), plr->GetGUID());
++                    WorldDatabase.PExecute(query.c_str(), plr->GetGUID());
++                    break;
++                case CHANNEL_LEAVE:
++                    Send_IRC_Channel(GetIRCChannel(Channel), MakeMsg(MakeMsg(MakeMsg(GetChatLine(LEAVE_WOW), "$Name", ChatTag + plr->GetName()), "$Channel", Channel), "$GM", GMRank));
++                    WorldDatabase.PExecute(lchan.c_str(), plr->GetGUID());
++                    break;
++            }
++        }
++    }
++}
++
++// This function sends chat to a irc channel or user
++// to prevent the # beeing appended to send a msg to a user
++// set the NoPrefix to true
++void IRCClient::Send_IRC_Channel(std::string sChannel, std::string sMsg, bool NoPrefix, int nType)
++{
++
++    #ifdef USE_UTF8
++        std::string sMsg2 = sMsg;
++    	if(ConvertUTF8(sMsg2.c_str(), sMsg2))
++            sMsg = sMsg2;
++    #endif
++
++    std::string mType = "PRIVMSG";
++    switch(nType)
++    {
++        case MSG_NOTICE:
++            mType = "NOTICE";
++            break;
++        case MSG_ACTION:
++            mType = "ACTION";
++            break;
++    }
++    if(sIRC.Connected)
++    {
++        if(NoPrefix)
++        {
++            if(sChannel.substr(0,1) != "#" && (sIRC.BOTMASK & 32)!= 0)
++                mType = "NOTICE";
++            SendIRC(mType + " " + sChannel + " :" + sMsg);
++        }
++        else
++            SendIRC(mType + " #" + sChannel + " :" + sMsg);
++    }
++}
++
++// This function sends a message to all irc channels
++// that mangchat has in its configuration
++void IRCClient::Send_IRC_Channels(std::string sMsg)
++{
++    for(int i=1;i < sIRC._chan_count + 1;i++)
++        Send_IRC_Channel(sIRC._irc_chan[i], sMsg);
++}
++
++// This function is called in ChatHandler.cpp, any channel chat from wow will come
++// to this function, validates the channel and constructs a message that is send to IRC
++void IRCClient::Send_WoW_IRC(Player *plr, std::string Channel, std::string Msg)
++{
++    // Check if the channel exist in our configuration
++    if(Channel_Valid(Channel))
++        Send_IRC_Channel(GetIRCChannel(Channel), MakeMsgP(WOW_IRC, Msg, plr));
++}
++
++void IRCClient::Send_WoW_Player(std::string sPlayer, std::string sMsg)
++{
++    normalizePlayerName(sPlayer);
++    if (Player* plr = ObjectAccessor::Instance().FindPlayerByName(sPlayer.c_str()))
++        Send_WoW_Player(plr, sMsg);
++}
++
++void IRCClient::Send_WoW_Player(Player *plr, string sMsg)
++{
++    WorldPacket data(SMSG_MESSAGECHAT, 200);
++    data << (uint8)CHAT_MSG_SYSTEM;
++    data << (uint32)LANG_UNIVERSAL;
++    data << (uint64)plr->GetGUID();
++    data << (uint32)0;
++    data << (uint64)plr->GetGUID();
++    data << (uint32)(sMsg.length()+1);
++    data << sMsg;
++    data << (uint8)0;
++    plr->GetSession()->SendPacket(&data);
++}
++
++// This function will construct and send a packet to all players
++// on the given channel ingame. (previuosly found in world.cpp)
++// it loops thru all sessions and checks if they are on the channel
++// if so construct a packet and send it.
++void IRCClient::Send_WoW_Channel(const char *channel, std::string chat)
++{
++    if(!(strlen(channel) > 0))
++        return;
++
++    #ifdef USE_UTF8
++        std::string chat2 = chat;
++        if(ConvertUTF8(chat2.c_str(), chat2))
++            chat = chat2;
++    #endif
++
++    HashMapHolder<Player>::MapType& m = ObjectAccessor::Instance().GetPlayers();
++    for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
++    {
++        if (itr->second && itr->second->GetSession()->GetPlayer() && itr->second->GetSession()->GetPlayer()->IsInWorld())
++        {
++            if(ChannelMgr* cMgr = channelMgr(itr->second->GetSession()->GetPlayer()->GetTeam()))
++            {
++                if(Channel *chn = cMgr->GetChannel(channel, itr->second->GetSession()->GetPlayer()))
++                {
++                    WorldPacket data;
++                    data.Initialize(SMSG_MESSAGECHAT);
++                    data << (uint8)CHAT_MSG_CHANNEL;
++                    data << (uint32)LANG_UNIVERSAL;
++                    data << (uint64)0;
++                    data << (uint32)0;
++                    data << channel;
++                    data << (uint64)0;
++                    data << (uint32) (strlen(chat.c_str()) + 1);
++                    data << IRCcol2WoW(chat.c_str());
++                    data << (uint8)0;
++                    itr->second->GetSession()->SendPacket(&data);
++                }
++            }
++        }
++    }
++}
++
++void IRCClient::Send_WoW_System(std::string Message)
++{
++    HashMapHolder<Player>::MapType& m = ObjectAccessor::Instance().GetPlayers();
++    for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
++    {
++        if (itr->second && itr->second->GetSession()->GetPlayer() && itr->second->GetSession()->GetPlayer()->IsInWorld())
++        {
++            WorldPacket data;
++            data.Initialize(CHAT_MSG_SYSTEM);
++            data << (uint8)CHAT_MSG_SYSTEM;
++            data << (uint32)LANG_UNIVERSAL;
++            data << (uint64)0;
++            data << (uint32)0;
++            data << (uint64)0;
++            data << (uint32) (strlen(Message.c_str()) + 1);
++            data << Message.c_str();
++            data << (uint8)0;
++            itr->second->GetSession()->SendPacket(&data);
++        }
++    }
++}
++
++void IRCClient::ResetIRC()
++{
++    SendData("QUIT");
++    Disconnect();
++}
++
++#define CHAT_INVITE_NOTICE 0x18
++
++// this function should be called on player login Player::AddToWorld
++void IRCClient::AutoJoinChannel(Player *plr)
++{
++    //this will work if at least 1 player is logged in regrdless if he is on the channel or not
++    // the first person that login empty server is the one with bad luck and wont be invited, 
++    // if at least 1 player is online the player will be inited to the chanel
++
++    std::string m_name = "world";
++    WorldPacket data;
++    data.Initialize(SMSG_CHANNEL_NOTIFY, 1+m_name.size()+1);
++    data << uint8(CHAT_INVITE_NOTICE);
++    data << m_name.c_str();
++
++    HashMapHolder<Player>::MapType& m = ObjectAccessor::Instance().GetPlayers();
++    for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
++    {
++        if (itr->second && itr->second->GetSession()->GetPlayer() && itr->second->GetSession()->GetPlayer()->IsInWorld())
++        {
++            data << uint64(itr->second->GetGUID());
++            break;
++        }
++    }
++    plr->GetSession()->SendPacket(&data);
++}
++#ifdef USE_UTF8
++bool IRCClient::ConvertUTF8(const char *chat, std::string &converted_utf)
++{
++    // extern void error();
++    iconv_t cd = iconv_open("char", "UTF-8");
++    if (cd != (iconv_t) -1)
++    {
++        size_t size_orig = strlen(chat);
++        size_t size_new = 2040;
++
++        char just_test[2048] = "";
++        char *chat_converted = just_test;
++
++        size_t size_converted = iconv(cd, &chat, &size_orig, &chat_converted, &size_new);
++	
++        if(size_converted != -1)
++		    converted_utf = just_test;
++        else
++        {
++            int retval = errno;
++            sLog.outError("ICONV Conversion error %d", retval);
++    	    iconv_close(cd);
++
++            switch(retval)
++            {
++            case EINVAL:
++                {
++                //Input conversion stopped due to an incomplete character or shift sequence at the end of the input buffer.
++    	    	return false;
++                }
++            case EILSEQ:
++                {
++                //Input conversion stopped due to an input byte that does not belong to the input codeset
++    	    	return false;
++                }
++            case E2BIG:
++                {
++                //Input conversion stopped due to lack of space in the output buffer. inbytesleft has the number of bytes to be converted.
++                return false;
++                }
++            }
++	    }	
++        return true;
++    }
++    else
++        return false;
++}
++#endif
+Index: src/game/mangchat/IRCCmde.cpp
+===================================================================
+--- src/game/mangchat/IRCCmde.cpp	(revision 0)
++++ src/game/mangchat/IRCCmde.cpp	(revision 0)
+@@ -0,0 +1,1178 @@
++#include "IRCCmd.h"
++#include "IRCClient.h"
++#include "WorldPacket.h"
++#include "../Chat.h"
++#include "../MapManager.h"
++#include "Database/DatabaseEnv.h"
++#include "../World.h"
++#include "../Guild.h"
++#include "../ObjectMgr.h"
++#include "../Language.h"
++#include "../SpellAuras.h"
++#include "../SystemConfig.h"
++#include "../Config/ConfigEnv.h"
++
++#define Send_Player(p, m)           sIRC.Send_WoW_Player(p, m)
++#define Send_IRC(c, m, b)           sIRC.Send_IRC_Channel(c, m, b)
++#define Send_IRCA(c, m, b, t)       sIRC.Send_IRC_Channel(c, m, b, t)
++
++#ifdef WIN32
++#define Delay(x) Sleep(x)
++#else
++#define Delay(x) sleep(x / 1000)
++#endif
++void IRCCmd::Handle_Login(_CDATA *CD)
++{
++    std::string* _PARAMS = getArray(CD->PARAMS, 2);
++    if(!IsLoggedIn(CD->USER))
++    {
++        QueryResult *result = loginDatabase.PQuery("SELECT `gmlevel` FROM `account` WHERE `username`='%s' AND `sha_pass_hash`=SHA1(CONCAT(UPPER(`username`),':',UPPER('%s')));", _PARAMS[0].c_str(), _PARAMS[1].c_str());
++        if (result)
++        {
++            Field *fields = result->Fetch();
++            int GMLevel = fields[0].GetInt16();
++            if(GMLevel >= 0)
++            {
++                _client *NewClient = new _client();
++
++                NewClient->Name     = CD->USER;
++                NewClient->UName    = _PARAMS[0];
++                NewClient->GMLevel  = fields[0].GetInt16();
++
++                _CLIENTS.push_back(NewClient);
++
++                Send_IRC(ChanOrPM(CD), MakeMsg("You Are Now Logged In As %s, Welcome To MangChat Admin Mode.", _PARAMS[0].c_str()), true);
++            }
++        }
++    }
++    else
++        Send_IRC(CD->USER, " \0034[ERROR] : You Are Already Logged In As "+ _PARAMS[0] +"!", true);
++}
++
++void IRCCmd::Handle_Logout(_CDATA *CD)
++{
++    for(std::list<_client*>::iterator i=_CLIENTS.begin(); i!=_CLIENTS.end();i++)
++    {
++        if((*i)->Name == CD->USER)
++        {
++            _CLIENTS.erase(i);
++            delete (*i);
++            Send_IRC(CD->USER, "You Are Now Logged Out!", true);
++            return;
++        }
++    }
++    Send_IRC(CD->USER, " \0034[ERROR] : You Are Not Logged In!", true);
++}
++void IRCCmd::Account_Player(_CDATA *CD)
++{
++    std::string* _PARAMS = getArray(CD->PARAMS, 3);
++    if(AcctLevel(_PARAMS[0]) > GetLevel(CD->USER) && (sIRC.BOTMASK & 512)!= 0)
++    {
++        Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Nice Try, This Player Has A Higher GM Level Than You! [ %i ]", AcctLevel(_PARAMS[0])), true, MSG_NOTICE);
++	    return;
++    }     	
++	normalizePlayerName(_PARAMS[0]);
++	uint64 guid = objmgr.GetPlayerGUIDByName(_PARAMS[0]);
++	uint32 account_id = 0;
++	account_id = objmgr.GetPlayerAccountIdByGUID(guid);
++	if(account_id)
++	{
++		Player* plr = objmgr.GetPlayer(guid);
++		if(_PARAMS[1] == "lock")
++		{
++			loginDatabase.PExecute( "UPDATE `account` SET `locked` = '1' WHERE `id` = '%d'",account_id);
++			if(plr) Send_Player(plr, MakeMsg("Your Account Has Been Locked To Your Current IP By: %s", CD->USER.c_str()));
++			Send_IRC(ChanOrPM(CD), " \00313["+_PARAMS[0]+"] : Account Has Been Locked To Their Current IP Address.",true);
++		}
++		else if(_PARAMS[1] == "unlock")
++		{
++            loginDatabase.PExecute( "UPDATE `account` SET `locked` = '0' WHERE `id` = '%d'",account_id);
++			if(plr) Send_Player(plr, MakeMsg("Your Account Has Been UnLocked From The Associated IP By: %s", CD->USER.c_str()));
++			Send_IRC(ChanOrPM(CD), " \00313["+_PARAMS[0]+"] : Account Has Been UnLocked From The Associated IP Address.",true);
++		}
++		else if(_PARAMS[1] == "rename")
++		{
++			if(plr)
++			{
++				plr->SetAtLoginFlag(AT_LOGIN_RENAME);
++				Send_Player(plr, MakeMsg("%s Has Requested You Change This Characters Name, Rename Will Be Forced On Next Login!", CD->USER.c_str()));
++			}
++			CharacterDatabase.PExecute("UPDATE `characters` SET `at_login` = `at_login` | '1' WHERE `guid` = '%u'", guid);
++			Send_IRC(ChanOrPM(CD), " \00313["+_PARAMS[0]+"] : Has Been Forced To Change Their Characters Name, Rename Will Be Forced On Next Login!",true);
++		}
++	}
++	else
++		Send_IRCA(CD->USER, " \0034[ERROR] : No Such Player Exists, So Account Cannot Be Looked Up!", true, MSG_NOTICE);
++}
++void IRCCmd::Fun_Player(_CDATA *CD)
++{
++    std::string* _PARAMS = getArray(CD->PARAMS, 3);
++    if(AcctLevel(_PARAMS[0]) > GetLevel(CD->USER) && (sIRC.BOTMASK & 512)!= 0)
++    {
++        Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Nice Try, This Player Has A Higher GM Level Than You! [ %i ]", AcctLevel(_PARAMS[0])), true, MSG_NOTICE);
++	    return;
++    }         
++	if (Player* plr = GetPlayer(_PARAMS[0]))
++    {
++		if(_PARAMS[1] == "say")
++        {
++            plr->Say(_PARAMS[2], LANG_UNIVERSAL);
++			Send_IRC(ChanOrPM(CD), " \00313["+_PARAMS[0]+"] : Was Forced To Say: "+_PARAMS[2]+".",true);
++        }
++        if(_PARAMS[1] == "sound")
++        {
++            uint32 sndid = atoi(_PARAMS[2].c_str());
++            plr->PlaySound(sndid ,true);
++			Send_IRC(ChanOrPM(CD), " \00313["+_PARAMS[0]+"] : Has Just Heard Sound ID: "+_PARAMS[2]+".",true);
++        }
++    }
++    else
++        Send_IRCA(CD->USER, " \0034[ERROR] : Player Not Online!", true, MSG_NOTICE);
++}
++
++void IRCCmd::Help_IRC(_CDATA *CD)
++{
++    std::string* _PARAMS = getArray(CD->PARAMS, 1);
++    QueryResult *result = WorldDatabase.PQuery("SELECT `Command`, `Description`, `gmlevel` FROM `IRC_Commands`");
++    if(result)
++    {
++        if(IsLoggedIn(CD->USER))
++        {
++            if(_PARAMS[0] == "")
++            {
++                QueryResult *result = WorldDatabase.PQuery("SELECT * FROM `IRC_Commands` WHERE `gmlevel` <= %u ORDER BY `Command`", GetLevel(CD->USER));
++                if(result)
++                {
++                    std::string output = "\002MangChat IRC Commands:\017 ";
++                    for (uint64 i=0; i < result->GetRowCount(); i++)
++                    {
++                        Field *fields = result->Fetch();
++                        output += fields[0].GetCppString() + ", ";
++                        result->NextRow();
++                    }
++                    delete result;
++                    Send_IRCA(CD->USER, output, true, MSG_NOTICE);
++                }
++            }
++            else
++            {
++                QueryResult *result = WorldDatabase.PQuery("SELECT `Description`, `gmlevel` FROM `IRC_Commands` WHERE `Command` = '%s'", _PARAMS[0].c_str());
++                if(result)
++                {
++                    Field *fields = result->Fetch();
++                    if(fields[1].GetUInt32() > GetLevel(CD->USER))
++                    {
++                        Send_IRCA(CD->USER, " You Do Not Have Access To That Command, So No Help Is Available.", true, MSG_NOTICE);
++                        return;
++                    }
++                    if(result)
++                    {
++                        std::string cmdhlp = fields[0].GetCppString();
++                        delete result;
++                        Send_IRCA(CD->USER, cmdhlp, true, MSG_NOTICE);
++                    }
++                }
++                else
++                    Send_IRCA(CD->USER, " \0034[ERROR] : No Such Command Exists, Please Check The Spelling And Try Again.", true, MSG_NOTICE);
++            }
++        }
++        else if(!IsLoggedIn(CD->USER))
++        {
++            if(_PARAMS[0] == "")
++            {
++                QueryResult *result = WorldDatabase.PQuery("SELECT * FROM `IRC_Commands` WHERE `gmlevel` = 0 ORDER BY `Command`");
++                if(result)
++                {
++                    std::string output = "\002MangChat IRC Commands:\017 ";
++                    for (uint64 i=0; i < result->GetRowCount(); i++)
++                    {
++                        Field *fields = result->Fetch();
++                        output += fields[0].GetCppString() + ", ";
++                        result->NextRow();
++                    }
++                    delete result;
++                    Send_IRCA(CD->USER, output, true, MSG_NOTICE);
++                    Send_IRCA(CD->USER, "You Are Currently Not Logged In, Please Login To See A Complete List Of Commands Available To You.", true, MSG_NOTICE);
++                }
++            }
++            else
++            {
++                QueryResult *result = WorldDatabase.PQuery("SELECT `Description`, `gmlevel` FROM `IRC_Commands` WHERE `Command` = '%s'", _PARAMS[0].c_str());
++                if(result)
++                {
++                    Field *fields = result->Fetch();
++                    if(fields[1].GetUInt32() > 0)
++                    {
++                        Send_IRCA(CD->USER, " You Do Not Have Access To That Command, So No Help Is Available.", true, MSG_NOTICE);
++                        return;
++                    }
++                    std::string cmdhlp = fields[0].GetCppString();
++                    delete result;
++                    Send_IRCA(CD->USER, cmdhlp, true, MSG_NOTICE);
++                }
++                else
++                    Send_IRCA(CD->USER, " \0034[ERROR] : No Such Command Exists, Please Check The Spelling And Try Again.", true, MSG_NOTICE);
++            }
++        }
++    }
++    else
++        Send_IRC(ChanOrPM(CD), " \0034[ERROR] : Database Error! Please Make Sure You Used IRC_Commands.sql, You Must Have A Table In Your World Database (IRC_Commands)!", true);
++}
++
++void IRCCmd::Inchan_Server(_CDATA *CD)
++{
++    std::string* _PARAMS = getArray(CD->PARAMS, 1);
++    if(_PARAMS[0] == "")
++    {
++        Send_IRCA(CD->USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"inchan <ChannelName> )", true, MSG_NOTICE);
++        return;
++    }
++    QueryResult *result = WorldDatabase.PQuery("SELECT * FROM `IRC_Inchan` WHERE `channel` = '%s' ORDER BY `name`", _PARAMS[0].c_str());
++    if(result)
++    {
++        Field *fields = result->Fetch();
++        std::string output = "\002Players In The [ "+fields[2].GetCppString()+" ] Channel:\017 ";
++        for (uint64 i=0; i < result->GetRowCount(); i++)
++        {
++            output += fields[1].GetCppString() + ", ";
++            result->NextRow();
++        }
++        delete result;
++        Send_IRC(ChanOrPM(CD), output, true);
++    }
++    else
++        Send_IRCA(CD->USER, "No Players Are Currently In [ "+_PARAMS[0]+" ] Channel!", true, MSG_NOTICE);
++}
++
++void IRCCmd::Info_Server(_CDATA *CD)
++{
++    std::string* _PARAMS = getArray(CD->PARAMS, 1);
++    char clientsNum [50];
++    sprintf(clientsNum, "%u", sWorld.GetActiveSessionCount());
++    char maxClientsNum [50];
++    sprintf(maxClientsNum, "%u", sWorld.GetMaxSessionCount());
++    std::string str = secsToTimeString(sWorld.GetUptime());
++	std::string svnrev = _FULLVERSION;
++	Send_IRC(ChanOrPM(CD), "\x2 Number Of Players Online:\x3\x31\x30 " + (std::string)clientsNum + "\xF |\x2 Max Since Last Restart:\x3\x31\x30 "+(std::string)maxClientsNum+"\xF |\x2 UpTime:\x3\x31\x30 "+str, true);
++	Send_IRC(ChanOrPM(CD), "\x2 MaNGOS SVN Rev:\x3\x31\x30 "+svnrev, true);
++	//Send_IRC(ChanOrPM(CD), " Number Of Players Online: " + (std::string)clientsNum + ". (Max Since Last Restart: " + (std::string)maxClientsNum + ")" + " Uptime: " + str + "SVN Rev: " +svnrev, true);
++}
++
++void IRCCmd::Item_Player(_CDATA *CD)
++{
++    std::string* _PARAMS = getArray(CD->PARAMS, 3);
++
++    
++    normalizePlayerName(_PARAMS[0]);
++    Player *chr = GetPlayer(_PARAMS[0].c_str());
++    if(_PARAMS[1] == "add")
++    {
++        std::string s_param  = _PARAMS[2];
++        char *args = (char*)s_param.c_str();
++        uint32 itemId = 0;
++        if(args[0]=='[')
++        {
++            char* citemName = citemName = strtok((char*)args, "]");
++            if(citemName && citemName[0])
++            {
++                std::string itemName = citemName+1;
++                WorldDatabase.escape_string(itemName);
++                QueryResult *result = WorldDatabase.PQuery("SELECT entry FROM item_template WHERE name = '%s'", itemName.c_str());
++                if (!result)
++                {
++                    Send_IRCA(CD->USER, " \0034[ERROR] : Item Not Found!", true, MSG_NOTICE);
++                    return;
++                }
++                itemId = result->Fetch()->GetUInt16();
++                delete result;
++            }
++            else
++            {
++                Send_IRCA(CD->USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"item <Player> <add> [Exact Item Name] <Amount> )", true, MSG_NOTICE);
++                return;
++            }
++        }
++        else
++        {
++            std::string itemName = s_param;
++            WorldDatabase.escape_string(itemName);
++            QueryResult *result = WorldDatabase.PQuery("SELECT entry FROM item_template WHERE name = '%s'", itemName.c_str());
++            if (result)
++            {
++                itemId = result->Fetch()->GetUInt16();
++            }
++            delete result;
++
++            char* cId = strtok(args, " ");
++            if(!cId)
++            {
++                Send_IRCA(CD->USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"item <Player> <add> <ItemID> <Amount> )", true, MSG_NOTICE);
++                return;
++            }
++            itemId = atol(cId);
++        }
++        char* ccount = strtok(NULL, " ");
++        int32 count = 1;
++        if (ccount) { count = atol(ccount); }
++        if (count < 1) { count = 1; }
++        Player* plTarget = chr;
++        if ( !plTarget )
++        {
++            Send_IRCA(CD->USER, " \0034[ERROR] : "+_PARAMS[0]+" Is Not Online!", true, MSG_NOTICE);
++            return;
++        }
++        sLog.outDetail("Command : Additem, itemId = %i, amount = %i", itemId, count);
++        ItemPrototype const *pProto = objmgr.GetItemPrototype(itemId);
++        if(!pProto)
++        {
++            Send_IRCA(CD->USER, " \0034[ERROR] : Invalid Item!", true, MSG_NOTICE);
++            return;
++        }
++        uint32 countForStore = count;
++        // item used in local operations and in add item notifier
++        Item* item = NULL;
++        // if possible create full stacks for better performance
++        while(countForStore >= pProto->Stackable)
++        {
++            uint16 dest;
++            uint8 msg = plTarget->CanStoreNewItem( NULL_BAG, NULL_SLOT, dest, itemId, pProto->Stackable, false );
++            if( msg == EQUIP_ERR_OK )
++            {
++                item = plTarget->StoreNewItem( dest, itemId, pProto->Stackable, true, Item::GenerateItemRandomPropertyId(itemId));
++                countForStore-= pProto->Stackable;
++            }
++            else
++                break;
++        }
++        // create remaining items
++        if(countForStore > 0 && countForStore < pProto->Stackable)
++        {
++            uint16 dest;
++            uint8 msg = plTarget->CanStoreNewItem( NULL_BAG, NULL_SLOT, dest, itemId, countForStore, false );
++            // if can add all countForStore items
++            if( msg == EQUIP_ERR_OK )
++            {
++                item = plTarget->StoreNewItem( dest, itemId, countForStore, true, Item::GenerateItemRandomPropertyId(itemId));
++                countForStore = 0;
++            }
++        }
++        // ok search place for add only part from countForStore items in not full stacks
++        while(countForStore > 0)
++        {
++            // find not full stack (last possable place for times after prev. checks)
++            uint16 dest;
++            uint8 msg = plTarget->CanStoreNewItem( NULL_BAG, NULL_SLOT, dest, itemId, 1, false );
++            if( msg == EQUIP_ERR_OK )                       // found
++            {
++                // we can fill this stack to max stack size
++                Item* itemStack = plTarget->GetItemByPos(dest);
++                if(itemStack)
++                {
++                    uint32 countForStack = pProto->Stackable - itemStack->GetCount();
++                    // recheck with real item amount
++                    uint8 msg = plTarget->CanStoreNewItem( itemStack->GetBagSlot(), itemStack->GetSlot(), dest, itemId, countForStack, false );
++                    if( msg == EQUIP_ERR_OK )
++                    {
++                        item = plTarget->StoreNewItem( dest, itemId, countForStack, true, Item::GenerateItemRandomPropertyId(itemId));
++                        countForStore-= countForStack;
++                    }
++                    else
++                        break;
++                }
++                else
++                    break;
++            }
++            else
++                break;
++        }
++        if(uint32(count) > countForStore && item)
++        {
++            plTarget->SendNewItem(item,count - countForStore,true,false);
++            QueryResult *result = WorldDatabase.PQuery("SELECT name FROM item_template WHERE entry = %d", itemId);
++            char* dbitemname = NULL;
++            if (result)
++            {
++                dbitemname = (char*)result->Fetch()->GetString();
++            }
++            std::string iinfo = " \00313[" + _PARAMS[0] + "] : Has Been Given Item "+dbitemname+". From: "+CD->USER.c_str()+".";
++            Send_IRC(ChanOrPM(CD), iinfo, true);
++            delete result;
++        }
++        if(countForStore > 0)
++        {
++            char s_countForStore[255];
++            sprintf(s_countForStore,"%d",countForStore);
++            std::string ierror = " \00313["+ _PARAMS[0] +"] : Could Not Create All Items! " +s_countForStore+ " Item(s) Were Not Created!";
++            Send_IRC(ChanOrPM(CD), ierror, true);
++        }
++    }
++}
++
++void IRCCmd::Jail_Player(_CDATA *CD)
++{
++    if(ValidParams(CD->PARAMS, 1))
++    {
++        std::string* _PARAMS = getArray(CD->PARAMS, 2);
++        if(AcctLevel(_PARAMS[0]) > GetLevel(CD->USER) && (sIRC.BOTMASK & 512)!= 0)
++        {
++            Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Nice Try, This Player Has A Higher GM Level Than You! [ %i ]", AcctLevel(_PARAMS[0])), true, MSG_NOTICE);
++	        return;
++        }
++		if (Player *plr = GetPlayer(_PARAMS[0]))
++        { 
++			std::string sReason = "";
++            if(_PARAMS[1] == "release")
++            {
++                float rposx, rposy, rposz, rposo = 0;
++                uint32 rmapid = 0;
++				CharacterDatabase.escape_string(_PARAMS[0]);
++                QueryResult *result = CharacterDatabase.PQuery( "SELECT `map`, `position_x`, `position_y`, `position_z` FROM `character_homebind` WHERE `guid` = '" I64FMTD "'", plr->GetGUID() );
++                if(result)
++                {
++                    Field *fields = result->Fetch();
++                    rmapid = fields[0].GetUInt16();
++                    rposx = fields[1].GetFloat();
++                    rposy = fields[2].GetFloat();
++                    rposz = fields[3].GetFloat();
++                    delete result;
++                    plr->SetMovement(MOVE_UNROOT);
++                    plr->TeleportTo(rmapid, rposx, rposy, rposz, rposo);
++                    plr->RemoveAurasDueToSpell(42201);
++                    plr->RemoveAurasDueToSpell(23775);
++                    plr->RemoveAurasDueToSpell(9454);
++                    Send_Player(plr, MakeMsg("You Have Been Released By: %s.", CD->USER.c_str()));
++                    sReason = " \00313["+_PARAMS[0]+"] : Has Been Released By: "+CD->USER+".";
++                    Send_IRC(ChanOrPM(CD), sReason, true);
++                }
++            }
++            else
++            {
++                if(_PARAMS[1] == "")
++                    _PARAMS[1] = "No Reason Given.";
++                plr->TeleportTo(13, 13, 13, 13, 0, true, true);
++                plr->SetMovement(MOVE_ROOT);
++                plr->CastSpell(plr, 42201, true);
++                plr->CastSpell(plr, 23775, true);
++                plr->CastSpell(plr, 9454, true);
++                Send_Player(plr, MakeMsg("You Have Been Jailed By: %s. Reason: %s.", CD->USER.c_str(), _PARAMS[1].c_str()));
++                sReason = " \00313["+_PARAMS[0]+"] : Has Been Jailed By: "+CD->USER+". Reason: "+_PARAMS[1]+".";
++                Send_IRC(ChanOrPM(CD), sReason, true);
++            }
++        }
++        else
++            Send_IRCA(CD->USER, " \0034[ERROR] : "+_PARAMS[0]+" Is Not Online!", true, MSG_NOTICE);
++    }
++}
++
++void IRCCmd::Kick_Player(_CDATA *CD)
++{
++    std::string* _PARAMS = getArray(CD->PARAMS, CD->PCOUNT);
++    if(AcctLevel(_PARAMS[0]) > GetLevel(CD->USER) && (sIRC.BOTMASK & 512)!= 0)
++    {
++        Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Nice Try, This Player Has A Higher GM Level Than You! [ %i ]", AcctLevel(_PARAMS[0])), true, MSG_NOTICE);
++	    return;
++    }     
++	if(_PARAMS[1] == "")
++        _PARAMS[1] = "No Reason Given.";
++    if (Player* plr = GetPlayer(_PARAMS[0]))
++    {
++		plr->GetSession()->KickPlayer();
++        Send_IRC(ChanOrPM(CD), " \00313["+_PARAMS[0]+"] : Has Been Kicked By: "+CD->USER+". Reason: "+_PARAMS[1]+".", true);
++    }
++    else
++        Send_IRCA(CD->USER, " \0034[ERROR] : "+_PARAMS[0]+" Is Not Online!", true, MSG_NOTICE);
++}
++
++void IRCCmd::Kill_Player(_CDATA *CD)
++{
++    std::string* _PARAMS = getArray(CD->PARAMS, CD->PCOUNT);
++    if(AcctLevel(_PARAMS[0]) > GetLevel(CD->USER) && (sIRC.BOTMASK & 512)!= 0)
++    {
++        Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Nice Try, This Player Has A Higher GM Level Than You! [ %i ]", AcctLevel(_PARAMS[0])), true, MSG_NOTICE);
++	    return;
++    }         
++	if (Player* plr = GetPlayer(_PARAMS[0]))
++    {
++		if(plr->isAlive())
++        {
++            plr->DealDamage(plr, plr->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_NORMAL, NULL, false);
++            plr->SaveToDB();
++            if(_PARAMS[1] == "")
++                _PARAMS[1] = "No Reason Given.";
++            Send_IRC(ChanOrPM(CD), MakeMsg(" \00313[%s] : Has Been Killed By: %s.", _PARAMS[0].c_str(), CD->USER.c_str()) +  +  + " Reason: "+_PARAMS[1]+".", true);
++            Send_Player(plr, MakeMsg("You Have Been Killed By: %s. Reason: %s.", CD->USER.c_str(), _PARAMS[1].c_str()));
++        }
++        else
++            Send_IRCA(CD->USER, " \0034[ERROR] : "+_PARAMS[0]+" Is Already Dead!", true, MSG_NOTICE);
++    }
++    else
++        Send_IRCA(CD->USER, " \0034[ERROR] : "+_PARAMS[0]+" Is Not Online!", true, MSG_NOTICE);
++}
++
++void IRCCmd::Level_Player(_CDATA *CD)
++{
++    std::string* _PARAMS = getArray(CD->PARAMS, CD->PCOUNT);
++    if(AcctLevel(_PARAMS[0]) > GetLevel(CD->USER) && (sIRC.BOTMASK & 512)!= 0)
++    {
++        Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Nice Try, This Player Has A Higher GM Level Than You! [ %i ]", AcctLevel(_PARAMS[0])), true, MSG_NOTICE);
++	    return;
++    }       
++	std::string player  = _PARAMS[0];
++	normalizePlayerName(player);
++    uint64 guid = objmgr.GetPlayerGUIDByName(player.c_str());
++    std::string s_newlevel  = _PARAMS[1];
++    uint8 i_newlvl = atoi(s_newlevel.c_str());
++    if(!guid)
++    {
++        Send_IRCA(CD->USER, " \0034[ERROR] : Player Not Found!", true, MSG_NOTICE);
++        return;
++    } else if ( i_newlvl < 1 || i_newlvl > sWorld.getConfig(CONFIG_MAX_PLAYER_LEVEL) )
++    {
++        Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Level Must Be Between 1 And %i!",sConfig.GetIntDefault("MaxPlayerLevel", 70)), true, MSG_NOTICE);
++        return;
++    } else
++    {
++		Player *chr = objmgr.GetPlayer(guid);
++        int32 i_oldlvl = chr ? chr->getLevel() : Player::GetUInt32ValueFromDB(UNIT_FIELD_LEVEL,guid);
++        if(chr)
++        {
++			chr->GiveLevel(i_newlvl);
++            chr->InitTalentForLevel();
++            chr->SetUInt32Value(PLAYER_XP,0);
++            WorldPacket data;
++            ChatHandler CH(chr->GetSession());
++            if(i_oldlvl == i_newlvl)
++                CH.FillSystemMessageData(&data, "Your level progress has been reset.");
++            else
++            if(i_oldlvl < i_newlvl)
++                CH.FillSystemMessageData(&data, fmtstring("You have been leveled up (%i)",i_newlvl-i_oldlvl));
++            else
++            if(i_oldlvl > i_newlvl)
++                CH.FillSystemMessageData(&data, fmtstring("You have been leveled down (%i)",i_newlvl-i_oldlvl));
++            chr->GetSession()->SendPacket( &data );
++        }
++        else
++        {
++            Tokens values;
++            Player::LoadValuesArrayFromDB(values,guid);
++            Player::SetUInt32ValueInArray(values,UNIT_FIELD_LEVEL,i_newlvl);
++            Player::SetUInt32ValueInArray(values,PLAYER_XP,0);
++            Player::SaveValuesArrayInDB(values,guid);
++        }
++    }
++    Send_IRC(ChanOrPM(CD), " \00313[" + _PARAMS[0]+ "] : Has Been Leveled To " + _PARAMS[1] + ". By: "+CD->USER+".", true);
++}
++
++void IRCCmd::Money_Player(_CDATA *CD)
++{
++    std::string* _PARAMS = getArray(CD->PARAMS, 2);
++    if(AcctLevel(_PARAMS[0]) > GetLevel(CD->USER) && (sIRC.BOTMASK & 512)!= 0)
++    {
++        Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Nice Try, This Player Has A Higher GM Level Than You! [ %i ]", AcctLevel(_PARAMS[0])), true, MSG_NOTICE);
++	    return;
++    }     
++	std::string player  = _PARAMS[0];
++    normalizePlayerName(player);
++    uint64 guid = objmgr.GetPlayerGUIDByName(player.c_str());
++    Player *chr = objmgr.GetPlayer(guid);
++
++    std::string s_money  = _PARAMS[1];
++    int32 money = atoi(s_money.c_str());
++    unsigned int gold = money / 10000;
++    unsigned int silv = (money % 10000) / 100;
++    unsigned int cop = (money % 10000) % 100;
++    char tempgold [100];
++    sprintf(tempgold, "\x2\x3\x30\x37%ug \x3\x31\x34%us \x3\x30\x35%uc\xF", gold, silv, cop);
++    if(!guid)
++    {
++        Send_IRCA(CD->USER, " \0034[ERROR] : Player Not Found!", true, MSG_NOTICE);
++    }
++    else
++    {
++		Player *chr = objmgr.GetPlayer(guid);
++        CharacterDatabase.escape_string(player);
++        std::string sqlquery = "SELECT SUBSTRING_INDEX(SUBSTRING_INDEX(data, ' ' , 1325), ' ' , -1) AS `gold` FROM `characters` WHERE `name` = '"+player+"';";
++        QueryResult *result = CharacterDatabase.Query(sqlquery.c_str());
++        if(result)
++        {
++            Field *fields = result->Fetch();
++            uint32 moneyuser = fields[0].GetInt32();
++            delete result;
++            int32 addmoney = money;
++            //uint32 moneyuser = chr->GetMoney();
++            int32 newmoney = moneyuser + addmoney;
++            char s_newmoney[255];
++            sprintf(s_newmoney,"%d",newmoney);
++            if(addmoney < 0)
++            {
++                sLog.outDetail("USER1: %i, ADD: %i, DIF: %i\\n", moneyuser, addmoney, newmoney);
++                if(newmoney <= 0 )
++                {
++                    Send_IRC(ChanOrPM(CD), " \00313["+player+"] : Has Had All Money Taken By: "+CD->USER.c_str()+".", true);
++                    if(chr)
++                    {
++                        chr->SetMoney(0);
++                        Send_Player(chr, MakeMsg("You Have Been Liquidated By: %s. Total Money Is Now 0.", CD->USER.c_str()));
++                    }
++                    else
++                        CharacterDatabase.PExecute("UPDATE `characters` SET data=concat(substring_index(data,' ',1325-1),' ','%u',' ', right(data,length(data)-length(substring_index(data,' ',1325))-1) ) where guid='%u'",newmoney, guid );
++                }
++                else
++                {
++                    Send_IRC(ChanOrPM(CD), " \00313["+player+"] : Has Had ("+tempgold+"\00313) Taken From Them By: "+CD->USER.c_str()+".", true);
++                    if(chr)
++                    {
++                        chr->SetMoney( newmoney );
++                        Send_Player(chr, MakeMsg("You Have Had %s Copper Taken From You By: %s.", _PARAMS[1].c_str(), CD->USER.c_str()));
++                    }
++                    else
++                        CharacterDatabase.PExecute("UPDATE `characters` SET data=concat(substring_index(data,' ',1325-1),' ','%u',' ', right(data,length(data)-length(substring_index(data,' ',1325))-1) ) where guid='%u'",newmoney, guid );
++                }
++            }
++            else
++            {
++                Send_IRC(ChanOrPM(CD), " \00313["+player+"] : Has Been Given ("+tempgold+"\00313) From: "+CD->USER.c_str()+".", true);
++                if(chr)
++                {
++                    chr->ModifyMoney( addmoney );
++                    Send_Player(chr, MakeMsg("You Have Been Given %s Copper. From: %s.", _PARAMS[1].c_str(), CD->USER.c_str()));
++                }
++                else
++                    CharacterDatabase.PExecute("UPDATE `characters` SET data=concat(substring_index(data,' ',1325-1),' ','%u',' ', right(data,length(data)-length(substring_index(data,' ',1325))-1) ) where guid='%u'",newmoney, guid );
++            }
++        }
++        else
++            Send_IRCA(CD->USER, " \0034[ERROR] : No Result!", true, MSG_NOTICE);
++    }
++}
++
++void IRCCmd::Mute_Player(_CDATA *CD)
++{
++    std::string* _PARAMS = getArray(CD->PARAMS, 3);
++    if(AcctLevel(_PARAMS[0]) > GetLevel(CD->USER) && (sIRC.BOTMASK & 512)!= 0)
++    {
++        Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Nice Try, This Player Has A Higher GM Level Than You! [ %i ]", AcctLevel(_PARAMS[0])), true, MSG_NOTICE);
++	    return;
++    }         
++	normalizePlayerName(_PARAMS[0]);
++    uint64 guid = objmgr.GetPlayerGUIDByName(_PARAMS[0]);
++	if(guid)
++    {
++		if(_PARAMS[1] == "release")
++        {
++            Player* plr = objmgr.GetPlayer(guid);
++            uint32 account_id = 0;
++            account_id = objmgr.GetPlayerAccountIdByGUID(guid);
++            // Send_IRC(ChanOrPM(CD), " 13 [ T E S T ]" ,true);
++            loginDatabase.PExecute("UPDATE `account` SET `mutetime` = '0' WHERE `id` = '%u'", account_id );
++            Send_IRC(ChanOrPM(CD), " \00313["+_PARAMS[0]+"] : Has Been UnMuted By: "+CD->USER+"." ,true);
++            if(plr)
++            {
++                plr->GetSession()->m_muteTime = 0;
++                Send_Player(plr, MakeMsg("You Have Been UnMuted By: %s.", CD->USER.c_str()));
++            }
++        }
++        else
++        {
++            if(_PARAMS[2] == "")
++                _PARAMS[2] = "No Reason Given";
++            Player* plr = objmgr.GetPlayer(guid);
++            time_t mutetime = time(NULL) + atoi(_PARAMS[1].c_str())*60;
++            uint32 account_id = 0;
++            account_id = objmgr.GetPlayerAccountIdByGUID(guid);
++            if(plr) plr->GetSession()->m_muteTime = mutetime;
++            loginDatabase.PExecute("UPDATE `account` SET `mutetime` = " I64FMTD " WHERE `id` = '%u'",uint64(mutetime), account_id );
++            Send_IRC(ChanOrPM(CD), " \00313["+_PARAMS[0]+"] : Has Been Muted By: "+CD->USER+". For: "+_PARAMS[1]+" Minutes. Reason: "+_PARAMS[2] ,true);
++            if(plr) Send_Player(plr, MakeMsg("You Have Been Muted By: %s. For: %s Minutes. Reason: %s", CD->USER.c_str(), _PARAMS[1].c_str(), _PARAMS[2].c_str()));
++        }
++    }
++    else
++        Send_IRCA(CD->USER, " \0034[ERROR] : Player Does Not Exist!", true, MSG_NOTICE);
++}
++
++#include "MCS_OnlinePlayers.h"
++void IRCCmd::Online_Players(_CDATA *CD)
++{
++        sIRC.Script_Lock[MCS_Players_Online] = true;
++        ZThread::Thread script(new mcs_OnlinePlayers(CD));
++}
++
++void IRCCmd::Player_Info(_CDATA *CD)
++{
++    std::string* _PARAMS = getArray(CD->PARAMS, 1);
++    std::string pname = _PARAMS[0];
++    uint64 guid = objmgr.GetPlayerGUIDByName(pname);
++    CharacterDatabase.escape_string(pname);
++    std::string sqlquery = "SELECT `guid`, `account`, `name`, `race`, `class`, `online`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 35), ' ' , -1) AS `level`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 236), ' ' , -1) AS `guildid`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 237), ' ' , -1) AS `guildrank`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 863), ' ' , -1) AS `xp`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 864), ' ' , -1) AS `maxxp`, SUBSTRING_INDEX(SUBSTRING_INDEX(data, ' ' , 1333), ' ' , -1) AS `gold`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 1385), ' ' , -1) AS `hk` FROM `characters` WHERE `name` LIKE '" + pname + "';";
++    QueryResult *result = CharacterDatabase.Query(sqlquery.c_str());
++    Player *chr = objmgr.GetPlayer(guid);
++    if(result)
++    {
++        Field *fields = result->Fetch();
++        std::string pguid = fields[0].GetCppString();
++        std::string pacct = fields[1].GetCppString();
++        pname = fields[2].GetCppString();
++        uint32 praceid = fields[3].GetUInt32();
++        uint32 pclassid = fields[4].GetUInt32();
++        std::string ponline = (fields[5].GetInt32() == 1 ? "\x3\x30\x33Online" : "\x3\x30\x34Offline\xF");
++        std::string plevel = fields[6].GetCppString();
++        uint32 pguildid = fields[7].GetUInt32();
++        uint32 pguildrank = fields[8].GetUInt32();
++        std::string pxp = fields[9].GetCppString();
++        std::string pmaxxp = fields[10].GetCppString();
++        unsigned int money = fields[11].GetInt32();
++        std::string hk = fields[12].GetCppString();
++        delete result;
++        std::string sqlquery = "SELECT `gmlevel` FROM `account` WHERE `id` = '" + pacct + "';";
++        QueryResult *result = loginDatabase.Query(sqlquery.c_str());
++        Field *fields2 = result->Fetch();
++        std::string pgmlvl = fields2[0].GetCppString();
++        delete result;
++        std::string guildinfo = "";
++        if (pguildid != 0)
++        {
++            Guild* guild = objmgr.GetGuildById(pguildid);
++            if (guild)
++            {
++                guildinfo = " " + guild->GetRankName(pguildrank) + " Of " + guild->GetName();
++            }
++        }
++        else guildinfo = " None";
++        ChrRacesEntry const* prace = sChrRacesStore.LookupEntry(praceid);
++        ChrClassesEntry const* pclass = sChrClassesStore.LookupEntry(pclassid);
++
++        if (atoi(plevel.c_str()) < sWorld.getConfig(CONFIG_MAX_PLAYER_LEVEL))
++            plevel += " (" + pxp + "/" + pmaxxp + ")";
++        unsigned int gold = money / 10000;
++        unsigned int silv = (money % 10000) / 100;
++        unsigned int cop = (money % 10000) % 100;
++        char tempgold [100];
++        sprintf(tempgold, "\x2\x3\x30\x37%ug \x3\x31\x34%us \x3\x30\x35%uc\xF", gold, silv, cop);
++        if (ponline == "\x3\x30\x33Online")
++        {
++            Player * plr = ObjectAccessor::Instance().FindPlayerByName(pname.c_str());
++            if (plr)
++            {
++                AreaTableEntry const* area = GetAreaEntryByAreaID(plr->GetAreaId());
++                ponline += " in " + (std::string) area->area_name[sWorld.GetDBClang()];
++                if (area->zone != 0)
++                {
++                    AreaTableEntry const* zone = GetAreaEntryByAreaID(area->zone);
++                    ponline += " (" + (std::string)zone->area_name[sWorld.GetDBClang()] + ")";
++                }
++            }
++        }
++        std::string pinfo  = "\x2 About Player:\x3\x31\x30 " +pname+ "\xF |\x2 GM Level:\x3\x31\x30 " +pgmlvl+ "\xF |\x2 AcctID:\x3\x31\x30 " +pacct+ "\xF |\x2 CharID:\x3\x31\x30 " +pguid+ " \xF |\x2 Guild Info:\x2\x3\x31\x30" +guildinfo;
++        std::string pinfo2 = "\x2 Race:\x2\x3\x31\x30 " + (std::string)prace->name[sWorld.GetDBClang()] + "\xF |\x2 Class:\x2\x3\x31\x30 " + (std::string)pclass->name[sWorld.GetDBClang()] + "\xF |\x2 Level:\x2\x3\x31\x30 " + plevel + "\xF |\x2 Money:\x2 " + tempgold + "\xF |\x2 Status:\x2 " + ponline;
++        //        pinfo3 = " :" + " \x2Honor Kills:\x2\x3\x31\x30 " + hk;
++        Send_IRC(ChanOrPM(CD),pinfo ,true);
++        Send_IRC(ChanOrPM(CD),pinfo2 ,true);
++        //        Send_IRC(ChanOrPM(CD),pinfo3 ,true);
++    }
++    else
++        Send_IRCA(CD->USER, " \0034[ERROR] : Unknown Player: " + pname ,true, MSG_NOTICE);
++}
++
++void IRCCmd::PM_Player(_CDATA *CD)
++{
++    std::string* _PARAMS = getArray(CD->PARAMS, 2);
++    if (Player* plr = GetPlayer(_PARAMS[0]))
++    {
++        if(plr->isAcceptWhispers())
++        {
++            std::string sMsg = MakeMsg("|cffFE87FD[<IRC>%s] Whispers: %s|r", CD->USER.c_str(), _PARAMS[1].c_str());
++            WorldPacket data(SMSG_MESSAGECHAT, 200);
++            data << (uint8)CHAT_MSG_SYSTEM;
++            data << (uint32)LANG_UNIVERSAL;
++            data << (uint64)plr->GetGUID();
++            data << (uint32)0;
++            data << (uint64)plr->GetGUID();
++            data << (uint32)(sMsg.length()+1);
++            data << sMsg;
++            data << (uint8)0;
++            plr->GetSession()->SendPacket(&data);
++            plr->PlaySound(3081, true);
++            Send_IRC(ChanOrPM(CD), " \00313To ["+_PARAMS[0]+"] : "+_PARAMS[1]+".",true);
++        }
++        else
++            Send_IRCA(CD->USER, " \0034[ERROR] : Is Not Accepting Private Messages!", true, MSG_NOTICE);
++    }
++    else
++        Send_IRCA(CD->USER, " \0034[ERROR] : Player not online!", true, MSG_NOTICE);
++}
++
++void IRCCmd::Revive_Player(_CDATA *CD)
++{
++    std::string* _PARAMS = getArray(CD->PARAMS, CD->PCOUNT);
++    if (Player* plr = GetPlayer(_PARAMS[0]))
++    {
++        if(plr->isDead())
++        {
++            plr->ResurrectPlayer(0.5f);
++            plr->SpawnCorpseBones();
++            plr->SaveToDB();
++            sIRC.Send_IRC_Channel(ChanOrPM(CD), " \00313["+_PARAMS[0]+"] : Has Been Revived By: " + CD->USER, true);
++            Send_Player(plr, MakeMsg("You Have Been Revived By: %s.", CD->USER.c_str()));
++        }
++        else
++            Send_IRCA(CD->USER, " \0034[ERROR] : "+_PARAMS[0]+" Is Not Dead!", true, MSG_NOTICE);
++    }
++    else
++        Send_IRCA(CD->USER, " \0034[ERROR] : "+_PARAMS[0]+" Is Not Online!", true, MSG_NOTICE);
++}
++
++void IRCCmd::Saveall_Player(_CDATA *CD)
++{
++    ObjectAccessor::Instance().SaveAllPlayers();
++    Send_IRC(ChanOrPM(CD), " \00313["+CD->USER+"] : Has Saved All Players!",true);
++}
++
++void IRCCmd::Shutdown_Mangos(_CDATA *CD)
++{
++    std::string* _PARAMS = getArray(CD->PARAMS, 1);
++    int32 i_time = atoi(_PARAMS[0].c_str());
++    if (i_time <= 0 && _PARAMS[0]!="0")
++    {
++        Send_IRC(ChanOrPM(CD), " \00313["+CD->USER+"] : Please Enter A Number! And No Negative Numbers! "+_PARAMS[0]+" Seconds!?",true);
++        return;
++    }
++    if (i_time > 1) Send_IRC(ChanOrPM(CD), " \00313["+CD->USER+"] : Has Requested Server To Be Shut Down In "+_PARAMS[0]+" Seconds!",true);
++    sWorld.ShutdownServ(i_time);
++    Delay(i_time*1000);
++    Send_IRC(ChanOrPM(CD), " \0034Server Will Now Shut Down.. Good Bye!",true);
++    sIRC.Active = false;
++    sIRC.ResetIRC();
++}
++
++void IRCCmd::Spell_Player(_CDATA *CD)
++{
++    std::string* _PARAMS = getArray(CD->PARAMS, 3);
++    if(AcctLevel(_PARAMS[0]) > GetLevel(CD->USER) && (sIRC.BOTMASK & 512)!= 0)
++    {
++        Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Nice Try, This Player Has A Higher GM Level Than You! [ %i ]", AcctLevel(_PARAMS[0])), true, MSG_NOTICE);
++	    return;
++    }     	
++	uint32 spell         = atoi(_PARAMS[2].c_str());
++    SpellEntry const *spellInfo = sSpellStore.LookupEntry(spell);
++    if (Player* plr = GetPlayer(_PARAMS[0]))
++    {
++		if(spellInfo)
++        {
++            std::string name = spellInfo->SpellName[sWorld.GetDBClang()];
++            if(_PARAMS[1] == "cast")
++            {
++                plr->CastSpell(plr, spell, true);
++                Send_IRC(ChanOrPM(CD), " \00313["+_PARAMS[0]+"] : Has Had Spell "+name+" Casted On Them.",true);
++            }
++            if(_PARAMS[1] == "learn")
++            {
++                plr->learnSpell(spell);
++                Send_IRC(ChanOrPM(CD), " \00313["+_PARAMS[0]+"] : Has Learned Spell "+name+".",true);
++            }
++            if(_PARAMS[1] == "unlearn")
++            {
++                plr->removeSpell(spell);
++                Send_IRC(ChanOrPM(CD), " \00313["+_PARAMS[0]+"] : Has Unlearned Spell "+name+".",true);
++            }
++        }
++        else
++            Send_IRCA(CD->USER, " \0034[ERROR] : Incorrect Spell ID!", true, MSG_NOTICE);
++    }
++    else
++        Send_IRCA(CD->USER, " \0034[ERROR] : Player Not Online!", true, MSG_NOTICE);
++}
++
++void IRCCmd::Sysmsg_Server(_CDATA *CD)
++{
++    std::string* _PARAMS = getArray(CD->PARAMS, CD->PCOUNT);
++    if(_PARAMS[0] == "a")
++    {
++        std::string str = "|cffff0000[System Message]:|r" + _PARAMS[1];
++        std::string ancmsg = MakeMsg("\00304,08\002\037*[!]*\037SysMsg\037*[!]*\037\002\003 %s \00304,08\002\037*[!]*\037SysMsg\037*[!]*\037\002\003",_PARAMS[1].c_str());
++        sWorld.SendWorldText(str.c_str(), NULL);
++        Send_IRC(ChanOrPM(CD), ancmsg, true);
++    }
++    else if (_PARAMS[0] == "n")
++    {
++        std::string str = "Global notify: " + _PARAMS[1];
++        std::string notmsg = MakeMsg("\00304,08\002\037*[!]*\037SysNotice\037*[!]*\037\002\003 %s \00304,08\002\037*[!]*\037SysNotice\037*[!]*\037\002\003",_PARAMS[1].c_str());
++        WorldPacket data(SMSG_NOTIFICATION, (str.size()+1));
++        data << str;
++        sWorld.SendGlobalMessage(&data);
++        Send_IRC(ChanOrPM(CD), notmsg, true);
++    }
++    else
++        Send_IRCA(CD->USER, " \0034[ERROR] : Please Use (a-Announce)(n-Notify) As Second Parameter!", true, MSG_NOTICE);
++}
++
++void IRCCmd::Tele_Player(_CDATA *CD)
++{
++    std::string* _PARAMS = getArray(CD->PARAMS, 4);
++    if(AcctLevel(_PARAMS[0]) > GetLevel(CD->USER) && (sIRC.BOTMASK & 512)!= 0)
++    {
++        Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Nice Try, This Player Has A Higher GM Level Than You! [ %i ]", AcctLevel(_PARAMS[0])), true, MSG_NOTICE);
++	    return;
++    }
++	bool DoTeleport = false;
++    float pX, pY, pZ, pO = 0;
++    uint32 mapid = 0;
++    std::string rMsg = " \0034[ERROR] : Teleport Failed!";
++    std::string wMsg = "Invalid Tele Location";
++	if (Player* plr = GetPlayer(_PARAMS[0]))
++    {
++		std::string* _PARAMS = getArray(CD->PARAMS, 3);
++        if(plr->isInFlight())
++        {
++            Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : %s Is Flying And Cannot Be Teleported!",_PARAMS[0].c_str()), true, MSG_NOTICE);
++            return;
++        }
++        if(_PARAMS[1] == "l")
++        {
++            WorldDatabase.escape_string(_PARAMS[2]);
++            QueryResult *result = WorldDatabase.PQuery("SELECT `position_x`,`position_y`,`position_z`,`orientation`,`map` FROM `game_tele` WHERE `name`='%s';", _PARAMS[2].c_str());
++            if (result)
++            {
++                Field *fields = result->Fetch();
++                pX = fields[0].GetFloat();
++                pY = fields[1].GetFloat();
++                pZ = fields[2].GetFloat();
++                pO = fields[3].GetFloat();
++                mapid = fields[4].GetUInt16();
++                delete result;
++                rMsg = MakeMsg(" \00313[%s] : Teleported To %s! By: %s.",
++                    _PARAMS[0].c_str(),
++                    _PARAMS[2].c_str(),
++                    CD->USER.c_str());
++                wMsg = MakeMsg("You Have Been Teleported To %s By: %s.",
++                    _PARAMS[2].c_str(),
++                    CD->USER.c_str());
++                DoTeleport = true;
++            }
++            else
++			{
++			    WorldDatabase.escape_string(_PARAMS[2]);
++                QueryResult *result = WorldDatabase.PQuery("SELECT `name` FROM `game_tele` WHERE `name` LIKE '%%%s%%' LIMIT 3;", _PARAMS[2].c_str());
++			    if (result)
++                {
++					std::string telename = "<> ";
++					for (uint64 i=0; i < result->GetRowCount(); i++)
++					{	Field *fields = result->Fetch();
++						telename.append(fields[0].GetCppString());
++						result->NextRow();
++						telename.append(" <> ");
++					}
++					delete result;
++					Send_IRCA(CD->USER, "I Cannot Find Location: "+_PARAMS[2]+" . Perhaps One Of These Will Work For You.", true, MSG_NOTICE);
++					Send_IRCA(CD->USER, telename, true, MSG_NOTICE);
++					return;
++				}
++				else
++					Send_IRCA(CD->USER, " \0034[ERROR] : Location Not Found! Nothing Even Close Found!", true, MSG_NOTICE);
++				    return;
++			}
++        }
++        else if(_PARAMS[1] == "c")
++        {
++            std::string* _PARAMSA = getArray(_PARAMS[2], 4);
++            pX = atof(_PARAMSA[1].c_str());
++            pY = atof(_PARAMSA[2].c_str());
++            pZ = atof(_PARAMSA[3].c_str());
++            mapid = atoi(_PARAMSA[0].c_str());
++            rMsg = MakeMsg(" \00313[%s] : Teleported To Map: %s. Position: X(%s) Y(%s) Z(%s)! By: %s.",
++                _PARAMS[0].c_str(),
++                _PARAMSA[0].c_str(),
++                _PARAMSA[1].c_str(),
++                _PARAMSA[2].c_str(),
++                _PARAMSA[3].c_str(),
++                CD->USER.c_str());
++            wMsg = MakeMsg("You Have Been Teleported To Map: %s. Position: X(%s) Y(%s) Z(%s)! By: %s.",
++                _PARAMSA[0].c_str(),
++                _PARAMSA[1].c_str(),
++                _PARAMSA[2].c_str(),
++                _PARAMSA[3].c_str(),
++                CD->USER.c_str());
++            DoTeleport = true;
++        }
++        else if(_PARAMS[1] == "r")
++        {
++            pX = plr->m_recallX;
++            pY = plr->m_recallY;
++            pZ = plr->m_recallZ;
++            pO = plr->m_recallO;
++            mapid = plr->m_recallMap;
++            rMsg = MakeMsg(" \00313[%s] : Has Been Recalled To Their Previous Location.",
++                _PARAMS[0].c_str());
++            wMsg = MakeMsg("You Have Been Recalled To Your Previous Location. By: %s",
++                CD->USER.c_str());
++            DoTeleport = true;
++        }
++        else if(_PARAMS[1] == "to")
++        {
++            if(Player* plr2 = GetPlayer(_PARAMS[2]))
++            {
++                bool in_flight;
++                Player::LoadPositionFromDB(mapid,pX,pY,pZ,pO,in_flight, plr2->GetGUID());
++                rMsg = MakeMsg(" \00313[%s] : Teleported To Player: [%s] By: %s.",
++                    _PARAMS[0].c_str(),
++                    _PARAMS[2].c_str(),
++                    CD->USER.c_str());
++                wMsg = MakeMsg("You Are Being Teleported To: %s. By: %s.",
++                    _PARAMS[2].c_str(),
++                    CD->USER.c_str());
++                DoTeleport = true;
++            }
++            else
++                Send_IRC(ChanOrPM(CD), " \0034[ERROR] : Second Player Not Found!", true);
++        }
++        if(DoTeleport)
++        {
++            if(MapManager::IsValidMapCoord(mapid, pX ,pY))
++            {
++                plr->SaveRecallPosition();
++                plr->TeleportTo(mapid, pX, pY, pZ, pO);
++                sIRC.Send_IRC_Channel(ChanOrPM(CD), rMsg, true);
++                Send_Player(plr, wMsg);
++            }
++            else
++                Send_IRCA(CD->USER, " \0034[ERROR] : Invalid Location!", true, MSG_NOTICE);
++        }
++    }
++    else
++        Send_IRCA(CD->USER, " \0034[ERROR] : Player not online!", true, MSG_NOTICE);
++}
++
++void IRCCmd::Who_Logged(_CDATA *CD)
++{
++    std::string OPS = "";
++    for(std::list<_client*>::iterator i=_CLIENTS.begin(); i!=_CLIENTS.end();i++)
++    {
++        OPS.append(MakeMsg(" \002[GM:%d IRC: %s - WoW: %s]\002 ", (*i)->GMLevel, (*i)->Name.c_str(), (*i)->UName.c_str()));
++    }
++    Send_IRC(ChanOrPM(CD), OPS, true);
++}
++
++// OK THIS CODE IS COMPLETLY USESLESS AND HAVE ABSOLUTLY NOTHING TODO WITH IRC ANYMORE HEHE
++// But its pretty funny
++// What this does it create a new thread and execute a little "script"
++// it spawns a npc near the player and roots it it greets the player
++// then casts buff spells stamina, intellect, spirit then leaves
++// the purpose of this all was to learn more about the unit classes and grid
++// it works fine with 5 players (so far our own tests) and a few spawns
++// i do not know the stability and functionality with a "loaded" server
++// and multiple buffers in theory each buffer is on its own thread
++// and should be spawn and talk to the correct player regardless where
++// they are in the world
++// ** USE THIS AT YOUR OWN RISK
++#ifdef _WIN32
++DWORD   WINAPI Buff_Script(void* ptr)
++#else
++void *Buff_Script( void *ptr )
++#endif
++{
++    if(sIRC._Max_Script_Inst == MAX_SCRIPT_INST)
++        return 0;
++
++    sIRC._Max_Script_Inst++;
++    std::string pname = (char *)ptr;
++    normalizePlayerName(pname);
++
++    if (Player* plr = ObjectAccessor::Instance().FindPlayerByName(pname.c_str()))
++    {
++        Creature* pCreature = new Creature(plr);
++        if (!pCreature->Create(objmgr.GenerateLowGuid(HIGHGUID_UNIT),
++            plr->GetMapId(),
++            plr->GetPositionX()  - 3,
++            plr->GetPositionY() - 3,
++            plr->GetPositionZ() + 5,
++            plr->GetOrientation() - 2.5,
++            sIRC.ZBUFF_NPC,
++            plr->GetTeam())) { delete pCreature; }
++            else
++			{
++            Delay(500);
++            pCreature->SaveToDB();
++			// To call _LoadGoods(); _LoadQuests(); CreateTrainerSpells();
++            pCreature->LoadFromDB(pCreature->GetGUIDLow(), plr->GetInstanceId());
++            plr->SetMovement(MOVE_ROOT);
++            plr->PlaySound(S_ENTERWORLD ,true);
++            MapManager::Instance().GetMap(pCreature->GetMapId(), pCreature)->Add(pCreature);
++            Delay(500);
++            pCreature->Say("Hello I Am Cybrax, I Am Here To Enhance Your Abilities.", LANG_UNIVERSAL, plr->GetGUID());
++            Delay(2000);
++            pCreature->CastSpell(plr, sSpellStore.LookupEntry( sIRC.ZBUFF_ANIM ), true);
++            Delay(2000);
++            pCreature->CombatStop();
++            if(SpellEntry const *spellInfo = sSpellStore.LookupEntry( sIRC.ZBUFF_SPELL1 ))
++            {
++                for(uint32 i = 0;i<3;i++)
++                {
++                    uint8 eff = spellInfo->Effect[i];
++                    if (eff>=TOTAL_SPELL_EFFECTS)
++                        continue;
++                    if (eff == SPELL_EFFECT_APPLY_AURA || eff == SPELL_EFFECT_APPLY_AREA_AURA || eff == SPELL_EFFECT_PERSISTENT_AREA_AURA)
++                    {
++                        Aura *Aur = new Aura(spellInfo, i, NULL, plr);
++                        plr->AddAura(Aur);
++                    }
++                }
++            }
++            Delay(1000);
++            if(SpellEntry const *spellInfo = sSpellStore.LookupEntry( sIRC.ZBUFF_SPELL2 ))
++            {
++                for(uint32 i = 0;i<3;i++)
++                {
++                    uint8 eff = spellInfo->Effect[i];
++                    if (eff>=TOTAL_SPELL_EFFECTS)
++                        continue;
++                    if (eff == SPELL_EFFECT_APPLY_AURA || eff == SPELL_EFFECT_APPLY_AREA_AURA || eff == SPELL_EFFECT_PERSISTENT_AREA_AURA)
++                    {
++                        Aura *Aur = new Aura(spellInfo, i, NULL, plr);
++                        plr->AddAura(Aur);
++                    }
++                }
++            }
++            Delay(1000);
++            if(SpellEntry const *spellInfo = sSpellStore.LookupEntry( sIRC.ZBUFF_SPELL3 ))
++            {
++                for(uint32 i = 0;i<3;i++)
++                {
++                    uint8 eff = spellInfo->Effect[i];
++                    if (eff>=TOTAL_SPELL_EFFECTS)
++                        continue;
++                    if (eff == SPELL_EFFECT_APPLY_AURA || eff == SPELL_EFFECT_APPLY_AREA_AURA || eff == SPELL_EFFECT_PERSISTENT_AREA_AURA)
++                    {
++                        Aura *Aur = new Aura(spellInfo, i, NULL, plr);
++                        plr->AddAura(Aur);
++                    }
++                }
++            }
++            Delay(2000);
++            pCreature->Say("I Have Done All I Can Do For You, Good Bye!", LANG_UNIVERSAL, plr->GetGUID());
++            Delay(1000);
++            plr->SetMovement(MOVE_UNROOT);
++            plr->PlaySound(S_STEALTH ,true);
++            pCreature->CombatStop();
++            pCreature->DeleteFromDB();
++            pCreature->CleanupsBeforeDelete();
++            ObjectAccessor::Instance().AddObjectToRemoveList(pCreature);
++        }
++    }
++    sIRC._Max_Script_Inst--;
++    return 0;
++}
++void IRCCmd::Zbuff_Player(_CDATA *CD)
++{
++    std::string* _PARAMS = getArray(CD->PARAMS, 1);
++    if (Player* plr = GetPlayer(_PARAMS[0]))
++    {
++        #ifdef _WIN32
++            CreateThread(NULL, 0, Buff_Script, (void*)plr->GetName(), 0, NULL);
++        #else
++            MThread *newthr = new MThread ();
++            pthread_create(&newthr->tid, NULL, &Buff_Script, (void*)plr->GetName());
++        #endif
++        sIRC.Send_IRC_Channel(ChanOrPM(CD), MakeMsg(" \00313[%s] : Has Been Buffed!",_PARAMS[0].c_str()), true);
++    }
++    else
++        Send_IRCA(CD->USER, " \0034[ERROR] : Player Not Online!", true, MSG_NOTICE);
++}
+Index: src/game/mangchat/IRCCmd.h
+===================================================================
+--- src/game/mangchat/IRCCmd.h	(revision 0)
++++ src/game/mangchat/IRCCmd.h	(revision 0)
+@@ -0,0 +1,101 @@
++#ifndef _IRC_CMD_H
++#define _IRC_CMD_H
++
++#define MAX_CLIENTS 50
++#include "Common.h"
++#include "../Player.h"
++#include "../ObjectAccessor.h"
++
++struct ChannelUser
++{
++    int UserType;
++    std::string Name;
++    std::string UName;
++    int UserLevel;
++};
++
++struct _client
++{
++    bool        LoggedIn;
++    std::string Name;
++    std::string UName;
++    int     GMLevel;
++};
++struct _CDATA
++{
++    std::string CMD;
++    std::string USER;
++    std::string FROM;
++    std::string PARAMS;
++    int PCOUNT;
++};
++enum APVERR
++{
++    E_OK,
++    E_SIZE,
++    E_AUTH,
++    E_IVALID,
++};
++enum ESOUNDS
++{
++    S_ENTERWORLD            = 602,
++    S_QUESTFAILED           = 847,
++    S_INVITE        = 880,
++    S_LEVELUP       = 888,
++    S_COINSOUND     = 895,
++    S_WHISPER       = 3081,
++    S_STEALTH       = 3325,
++};
++class IRCCmd
++{
++    public:
++        IRCCmd();
++        ~IRCCmd();
++        bool    IsValid(std::string USER, std::string FROM, std::string CHAT);
++        void    Handle_Logout(_CDATA *CD);
++        bool    IsLoggedIn(std::string USER);
++        _client *GetClient(std::string cname);
++
++    public:
++        static std::string MakeMsg(const char *sLine, ... );
++        static std::string ChanOrPM(_CDATA *CD);
++
++    private:
++        void    Handle_Login(_CDATA *CD);
++        void    Online_Players(_CDATA *CD);
++        int GetLevel(std::string sName);
++		int AcctLevel(std::string plnme);
++        // InGame Commands
++        void    Account_Player(_CDATA *CD);
++		void    Fun_Player(_CDATA *CD);
++        void    Help_IRC(_CDATA *CD);
++        void    Item_Player(_CDATA *CD);
++        void    Inchan_Server(_CDATA *CD);
++        void    Info_Server(_CDATA *CD);
++        void    Jail_Player(_CDATA *CD);
++        void    Kick_Player(_CDATA *CD);
++        void    Kill_Player(_CDATA *CD);
++        void    Level_Player(_CDATA *CD);
++        void    Money_Player(_CDATA *CD);
++        void    Mute_Player(_CDATA *CD);
++        void    Player_Info(_CDATA *CD);
++        void    PM_Player(_CDATA *CD);
++        void    Revive_Player(_CDATA *CD);
++        void    Saveall_Player(_CDATA *CD);
++        void    Shutdown_Mangos(_CDATA *CD);
++        void    Spell_Player(_CDATA *CD);
++        void    Sysmsg_Server(_CDATA *CD);
++        void    Tele_Player(_CDATA *CD);
++        void    Who_Logged(_CDATA *CD);
++        void    Zbuff_Player(_CDATA *CD);
++        bool    CanUse(std::string USER, int nLevel);
++        bool    ValidParams(std::string PARAMS, int nCount = 1);
++        bool    ParamsValid(_CDATA *CD, int pCnt);
++        int     ParamsValid(_CDATA *CD, int pCnt, int rLev);
++        Player* GetPlayer(std::string WHO);
++        std::string GetAccName(std::string sName);
++        std::string* getArray(std::string PARAMS, int nCount = 1);
++
++        std::list<_client*> _CLIENTS;
++};
++#endif
+Index: src/game/mangchat/IRCClient.cpp
+===================================================================
+--- src/game/mangchat/IRCClient.cpp	(revision 0)
++++ src/game/mangchat/IRCClient.cpp	(revision 0)
+@@ -0,0 +1,111 @@
++/*
++ * MangChat By Cybrax (VisualDreams)
++ *
++ * This Program Is Free Software; You Can Redistribute It And/Or Modify It Under The Terms Of The GNU General Public License
++ * Written and Developed by Cybrax. cybraxvd@gmail.com
++ * |Death| <death@hell360.net>, Lice <lice@yeuxverts.net>, Dj_baby & Sanaell, Tase
++ * With Help And Support From The MaNGOS Project Community.
++ * PLEASE RETAIN THE COPYRIGHT OF THE AUTHORS.
++ */
++
++#include "IRCClient.h"
++#include "../World.h"
++#include "../ObjectMgr.h"
++#include "../MapManager.h"
++
++#include "Policies/SingletonImp.h"
++INSTANTIATE_SINGLETON_1( IRCClient );
++
++#ifdef WIN32
++    #define Delay(x) Sleep(x)
++#else
++    #define Delay(x) sleep(x / 1000)
++#endif
++
++// IRCClient Constructor
++IRCClient::IRCClient()
++{
++    for(int i = 0;i > 5;i++)
++        sIRC.Script_Lock[i] = false;
++
++}
++
++// IRCClient Destructor
++IRCClient::~IRCClient(){}
++
++// ZThread Entry This function is called when the thread is created in Master.cpp (mangosd)
++void IRCClient::run()
++{
++    sIRC.iLog.WriteLog(" %s : ****** MaNGOS With MangChat Has Been Started ******", sIRC.iLog.GetLogDateTimeStr().c_str());
++
++    // future task 
++    #ifdef USE_UTF8
++	setlocale(LC_CTYPE, "en_ca.UTF-8");
++    #endif
++
++    // before we begin we wait a few 
++    // mangos is still starting up and max screw
++    // up the console text
++    ZThread::Thread::sleep(500);
++    sLog.outString("\n%s\n%s\n%s\n%s\n%s\n",
++        "***************************************",
++        "#    MANGCHAT Threaded IRC CLient     #",
++        "#     With enhanched GM Control.      #",
++        "***************************************",
++        "***** MangChat: Version 1.3.0.0 *******");
++    // Initialize connection count 0
++    int cCount = 0;
++    // Clean Up MySQL Tables
++    sLog.outString("*** MangChat: Cleaning Up Inchan Table*");
++    WorldDatabase.PExecute("DELETE FROM `IRC_Inchan`");
++    // Load The Configuration From mangosd.conf
++    sLog.outString("*** MangChat: Loading Configuration ***");
++    LoadConfig();
++    sIRC._Max_Script_Inst = 0;
++    // Create a loop to keep the thread running untill active is set to false
++    while(sIRC.Active && !World::m_stopEvent)
++    {
++        // Initialize socket library
++        if(this->InitSock())
++        {
++            // Connect To The IRC Server
++            sLog.outString("*** MangChat: Connecting to %s Try # %d ******", sIRC._Host.c_str(), cCount);
++            if(this->Connect(sIRC._Host.c_str(), sIRC._Port))
++            {
++                // On connection success reset the connection counter
++                cCount = 0;
++                sLog.outString("*** MangChat: Connected And Logging In*");
++                // Login to the IRC server
++                if(this->Login(sIRC._Nick, sIRC._User, sIRC._Pass))
++                {
++                    sLog.outString("*** MangChat: Logged In And Running!! *");
++                    // While we are connected to the irc server keep listening for data on the socket
++                    while(sIRC.Connected && !World::m_stopEvent){ sIRC.SockRecv(); }
++                }
++                sLog.outString("*** MangChat: Connection To IRC Server Lost! ***");
++            }
++            // When an error occures or connection lost cleanup
++            Disconnect();
++            // Increase the connection counter
++            cCount++;
++            // if MAX_CONNECT_ATTEMPT is reached stop trying
++            if(sIRC._MCA != 0 && cCount == sIRC._MCA)
++                sIRC.Active = false;
++            // If we need to reattempt a connection wait WAIT_CONNECT_TIME milli seconds before we try again
++            if(sIRC.Active)
++                ZThread::Thread::sleep(sIRC._wct);
++            //Delay(WAIT_CONNECT_TIME);
++        }
++        else
++        {
++            // Socket could not initialize cancel
++            sIRC.Active = false;
++            sLog.outError("** MangChat: Could not initialize socket");
++        }
++    }
++    // we need to keep the thread alive or mangos will crash
++    // when sending chat or join/leave channels.
++    // even when we are not connected the functions must still
++    // be availlable where chat is sent to so we keep it running
++    while(!World::m_stopEvent){};
++}
+Index: src/game/mangchat/IRCLog.cpp
+===================================================================
+--- src/game/mangchat/IRCLog.cpp	(revision 0)
++++ src/game/mangchat/IRCLog.cpp	(revision 0)
+@@ -0,0 +1,59 @@
++#include "IRCLog.h"
++#include "Config/ConfigEnv.h"
++#include <stdarg.h>
++
++IRCLog::IRCLog()
++{
++    std::string logsDir = sConfig.GetStringDefault("LogsDir","");
++    std::string ircLogName = logsDir + "/" + sConfig.GetStringDefault("irc.logfile.prefix", "IRC_");
++    std::string ircLogTimestamp = GetLogDateStr();
++        ircLogName += ircLogTimestamp +".log";
++    ircLogfile.open (ircLogName.c_str(), std::ios::app);
++}
++
++IRCLog::~IRCLog()
++{
++    ircLogfile.close();
++}
++// Was added because using the time for logs is very annoying... one log per day.. much cleaner looking..
++std::string IRCLog::GetLogDateStr() const
++{
++    time_t t = time(NULL);
++    tm* aTm = localtime(&t);
++    //       YYYY   year
++    //       MM     month (2 digits 01-12)
++    //       DD     day (2 digits 01-31)
++    //       HH     hour (2 digits 00-23)
++    //       MM     minutes (2 digits 00-59)
++    //       SS     seconds (2 digits 00-59)
++    char buf[20];
++    snprintf(buf,20,"%04d-%02d-%02d",aTm->tm_year+1900,aTm->tm_mon+1,aTm->tm_mday);
++    return std::string(buf);
++}
++
++std::string IRCLog::GetLogDateTimeStr() const
++{
++    time_t t = time(NULL);
++    tm* aTm = localtime(&t);
++    //       YYYY   year
++    //       MM     month (2 digits 01-12)
++    //       DD     day (2 digits 01-31)
++    //       HH     hour (2 digits 00-23)
++    //       MM     minutes (2 digits 00-59)
++    //       SS     seconds (2 digits 00-59)
++    char buf[30];
++	snprintf(buf,30,"[ %04d-%02d-%02d ] [ %02d:%02d:%02d ]",aTm->tm_year+1900,aTm->tm_mon+1,aTm->tm_mday,aTm->tm_hour,aTm->tm_min,aTm->tm_sec);
++    return std::string(buf);
++}
++
++void IRCLog::WriteLog(const char *what, ...)
++{
++    va_list ap;
++    char tmpoutp[1024];
++    va_start(ap, what);
++    vsnprintf(tmpoutp, 1024, what, ap );
++    va_end(ap);
++    ircLogfile << tmpoutp;
++    ircLogfile << "\n";
++    ircLogfile.flush();
++}
+Index: src/game/mangchat/IRCClient.h
+===================================================================
+--- src/game/mangchat/IRCClient.h	(revision 0)
++++ src/game/mangchat/IRCClient.h	(revision 0)
+@@ -0,0 +1,242 @@
++#ifndef _IRC_CLIENT_H
++#define _IRC_CLIENT_H
++
++#include "Policies/Singleton.h"
++#include "../Player.h"
++#include "MCGame.h"
++#include "IRCLog.h"
++
++#ifdef USE_UTF8
++#include "iconv.h"
++#endif
++
++//Uncomment this to enable UTF-8 conversion
++//#define USE_UTF8
++
++using namespace std;
++// The maximum ammount of channels used
++// in the channel array you can have as much channels as you
++// want, but it is important to always have at least equal or more
++// channels then you specify in your mangosd.conf
++#define MAX_CONF_CHANNELS 10
++#define MAX_CHAT_LINES 10
++// time we need to wait before we try another connecton attempt
++// Default is 30 seconds
++#define MAX_SCRIPT_INST 10
++// CLINES is used for the default chatlines
++// By using the GetChatLine function its easier and faster
++// to receieve the line you need.
++enum CLINES
++{
++    IRC_WOW = 0,
++    WOW_IRC = 1,
++    JOIN_WOW = 2,
++    JOIN_IRC = 3,
++    LEAVE_WOW = 4,
++    LEAVE_IRC = 5,
++    CHANGE_NICK = 6
++};                                                          // Chatlines
++// CACTION is used by the Handle_WoW_Channel function
++// this function is called in channel.h when a player
++// joins or leave a channel inside the client.
++enum CACTION
++{
++    CHANNEL_JOIN,
++    CHANNEL_LEAVE,
++};
++enum CIMSG
++{
++    MSG_PRIV = 0,
++    MSG_NOTICE = 1,
++    MSG_ACTION = 2,
++};
++
++enum script_Names
++{
++    MCS_Players_Online  = 0,
++    MCS_Poker_Game      = 1,
++    MCS_PlaceHolder_2   = 2,
++};
++
++// IRCClient main class
++class IRCClient : public ZThread::Runnable
++{
++    public:
++        // IRCClient Constructor
++        IRCClient();
++        // IRCClient Destructor
++        ~IRCClient();
++        // ZThread Entry
++        void run();
++    public:
++        // IRCClient active
++        bool    Active;
++        // Connected to IRC
++        bool    Connected;
++        // Socket indentifier
++        int     SOCKET;
++        fd_set  sfdset;
++        // Send data to IRC, in addition the endline is added \n
++        bool    SendIRC(std::string data);
++        // This function is called in ChatHandler.cpp and processes the chat from game to IRC
++        void    Send_WoW_IRC(Player *plr, std::string Channel, std::string Msg);
++        // Sends a message to all players on the specified channel
++        void    Send_WoW_Channel(const char *channel, std::string chat);
++        // Send a system message to all players
++        void    Send_WoW_System(std::string Message);
++        // Send a message to the specified IRC channel
++        void    Send_IRC_Channel(std::string sChannel, std::string sMsg, bool NoPrefix = false, int nType = MSG_PRIV);
++        // Sends a message to all IRC Channels
++        void    Send_IRC_Channels(std::string sMsg);
++        std::string MakeMsg(std::string msg, std::string var, std::string val)
++        {
++            std::size_t start = msg.find(var);
++            if (start != std::string::npos)
++                msg.replace(start, var.length(), val);
++            return msg;
++        }
++        void    Send_WoW_Player(string sPlayer, string sMsg);
++        void    Send_WoW_Player(Player *plr, string sMsg);
++
++        // This function is called in Channel.cpp and processes Join/leave messages
++        void    Handle_WoW_Channel(std::string Channel, Player *plr, int nAction);
++        void ResetIRC();
++    public:
++        void AutoJoinChannel(Player *plr);
++        bool ConvertUTF8(const char *chat, std::string &converted_utf);
++
++    public:
++        bool Script_Lock[5];
++
++    public:
++        // IRC Server host
++        string  _Host;
++        // IRC Server Port
++        int _Port;
++        // IRC Username
++        string  _User;
++        // IRC Password
++        string  _Pass;
++        // IRC Nickname
++        string  _Nick;
++        // Authentication type
++        int _Auth;
++        // IRC Connect code
++        string  _ICC;
++        // IRC Default channel
++        string  _defchan;
++        // IRC Leave Default channel
++        int _ldefc;
++        // Wait Connect Time
++        int _wct;
++        // BotMask Options
++        int Botmask;
++        // IRC Channel count
++        // DO NOT CHANGE THIS
++        // if you wish to handle more then 10 channes
++        // change MAX_CONF_CHANNELS from the defines.
++        int _chan_count;
++        // IRC Channel list
++        // Array to store our IRC channels
++        // each element will corrospond
++        // with _wow_chan array below.
++        std::string _irc_chan[MAX_CONF_CHANNELS];
++        // Game Channel list
++        std::string _wow_chan[MAX_CONF_CHANNELS];
++        // AutoJoin Options
++		int ajoin;
++		string ajchan;
++		// Online Command Max Results
++		int onlrslt;
++        // Channel OnJoin/Restart/Kick Messages
++        string  JoinMsg;
++        string  RstMsg;
++        string  kikmsg;
++        // Misc Options
++        string  ojGM1;
++        string  ojGM2;
++        string  ojGM3;
++        string  ojGM4;
++        string  ojGM5;
++        string  logfile;
++		int     games;
++		int     gmlog;
++		// IRC Commands Security Level
++        int     CACCT;
++		int     CFUN;
++        int     CHELP;
++        int     CITEM;
++        int     CJAIL;
++        int     CKICK;
++        int     _KILL;
++        int     CLEVEL;
++        int     CMONEY;
++        int     CMUTE;
++        int     CPLAYER;
++        int     CPM;
++        int     CRESTART;
++        int     CREVIVE;
++        int     CSAVEALL;
++        int     CSHUTDOWN;
++        int     CSPELL;
++        int     CSYSMSG;
++        int     CTELE;
++        int     CWHO;
++        int     CZBUFF;
++        // ZBuff Options
++        int     ZBUFF_NPC;
++        int     ZBUFF_ANIM;
++        int     ZBUFF_SPELL1;
++        int     ZBUFF_SPELL2;
++        int     ZBUFF_SPELL3;
++        int     HBUFF_SPELL1;
++        int     HBUFF_SPELL2;
++        int     HBUFF_SPELL3;
++        // BotMask
++        int     BOTMASK;
++        // Max connect attempt
++        int     _MCA;
++        // Auto rejoin when kicked from irc
++        int     _autojoinkick;
++        // IRC Command prefix
++        string  _cmd_prefx;
++        // contains the Chatlines
++        // Array that contains our chatlines from the conf file
++        // To increase this value change the MAX_CHAT_LINE define above
++        // Make sure the number of elements must match your items
++        // (remeber this starts at 0 so 0..9 is 10 items)
++        // and that you load the line in the LoadConfig function.
++        string  ILINES[MAX_CHAT_LINES];
++        string  GetChatLine(int nItem);
++
++        int _Max_Script_Inst;
++        // MAX_SCRIPT_INST
++
++        IRCLog iLog;
++
++public:
++    std::list<gPlayer*> GamePlayers;
++
++    private:
++        // Load configuration from the mangosd.conf file
++        // to be used with the irc client.
++        bool    LoadConfig();
++        // Returns default chatline based on enum CLINES
++        // Initialize socket library
++        bool    InitSock();
++        // Connect to IRC Server
++        bool    Connect(const char *cHost, int nPort);
++        // Login to IRC Server
++        bool    Login(std::string sNick, std::string sUser, std::string sPass);
++        // Send raw data to IRC
++        bool    SendData(const char *data);
++        // Disconnect from IRC and cleanup socket
++        void    Disconnect();
++        // Processes the data receieved from IRC
++        void    Handle_IRC(std::string sData);
++        // Receieves data from the socket.
++        void    SockRecv();
++};
++#endif
++
++#define sIRC MaNGOS::Singleton<IRCClient>::Instance()
+Index: src/game/mangchat/IRCConf.cpp
+===================================================================
+--- src/game/mangchat/IRCConf.cpp	(revision 0)
++++ src/game/mangchat/IRCConf.cpp	(revision 0)
+@@ -0,0 +1,137 @@
++#include "IRCClient.h"
++#include "Config/ConfigEnv.h"
++bool IRCClient::LoadConfig()
++{
++    int ConfCnt = 0;
++    sIRC._chan_count = 0;
++    if(sConfig.GetIntDefault("irc.active", 1) == 1)
++        sIRC.Active = true;
++    else
++        sIRC.Active = false;
++    sIRC._Host = sConfig.GetStringDefault("irc.host", "irc.freenode.net");
++    if(sIRC._Host.size() > 0)
++        ConfCnt++;
++    sIRC._Port = sConfig.GetIntDefault("irc.port", 6667);
++    sIRC._User = sConfig.GetStringDefault("irc.user", "cybmc");
++    sIRC._Pass = sConfig.GetStringDefault("irc.pass", "cybmc");
++    sIRC._Nick = sConfig.GetStringDefault("irc.nick", "cybmc");
++    sIRC._Auth = sConfig.GetIntDefault("irc.auth", 0);
++    sIRC._ICC = sConfig.GetStringDefault("irc.icc", "001");
++    sIRC._defchan = sConfig.GetStringDefault("irc.defchan", "lobby");
++    sIRC._ldefc = sConfig.GetIntDefault("irc.ldef", 0);
++    sIRC._wct = sConfig.GetIntDefault("irc.wct", 30000);
++   	sIRC.ajoin = sConfig.GetIntDefault("irc.ajoin", 1);
++    sIRC.ajchan = sConfig.GetStringDefault("irc.ajchan", "world");
++    sIRC.onlrslt = sConfig.GetIntDefault("irc.online.result", 10);
++    sIRC.BOTMASK = sConfig.GetIntDefault("Botmask", 0);
++    sIRC.logfile = sConfig.GetStringDefault("irc.logfile.prefix", "IRC_");
++	for(int i = 1; i < MAX_CONF_CHANNELS;i++)
++    {
++        std::ostringstream ss;
++        ss << i;
++        std::string ci = "irc.chan_" + ss.str();
++        std::string t_chan = sConfig.GetStringDefault(ci.c_str(), "");
++        if(t_chan.size() > 0)
++        {
++            sIRC._chan_count++;
++            sIRC._irc_chan[sIRC._chan_count] = t_chan;
++            ci = "wow.chan_" + ss.str();
++            sIRC._wow_chan[sIRC._chan_count] = sConfig.GetStringDefault(ci.c_str(), t_chan.c_str());
++        }
++    }
++    sIRC.JoinMsg = sConfig.GetStringDefault("irc.joinmsg", "Whhaaazzzzaaaa, MangChat 1.0 Baby!!");
++    sIRC.RstMsg  = sConfig.GetStringDefault("irc.rstmsg", "MangChat Is Restarting, I Will Be Right Back!");
++    sIRC.kikmsg = sConfig.GetStringDefault("irc.kickmsg", "Do Not Kick Me Again, Severe Actions Will Be Taken!");
++    // IRC LINES
++    sIRC.ILINES[WOW_IRC] = sConfig.GetStringDefault("chat.wow_irc", "\003<WoW>[\002$Name($Level)\002\003] $Msg");
++    sIRC.ILINES[IRC_WOW] = sConfig.GetStringDefault("chat.irc_wow", "\003<IRC>[$Name]: $Msg");
++    sIRC.ILINES[JOIN_WOW] = sConfig.GetStringDefault("chat.join_wow", "\00312>>\00304 $Name \003Joined The Channel!");
++    sIRC.ILINES[JOIN_IRC] = sConfig.GetStringDefault("chat.join_irc", "\003[$Name]: Has Joined IRC!");
++    sIRC.ILINES[LEAVE_WOW] = sConfig.GetStringDefault("chat.leave_wow", "\00312<<\00304 $Name \003Left The Channel!");
++    sIRC.ILINES[LEAVE_IRC] = sConfig.GetStringDefault("chat.leave_irc", "\003[$Name]: Has Left IRC!");
++    sIRC.ILINES[CHANGE_NICK] = sConfig.GetStringDefault("chat.change_nick", "\003<> $Name Is Now Known As $NewName!");
++    // MangChat Options
++    sIRC._MCA = sConfig.GetIntDefault("irc.maxattempt", 10);
++    sIRC._autojoinkick = sConfig.GetIntDefault("irc.autojoin_kick", 1);
++    sIRC._cmd_prefx = sConfig.GetStringDefault("irc.command_prefix", ".");
++    // Misc Options
++    sIRC.games = sConfig.GetIntDefault("irc.fun.games", 0);
++	sIRC.gmlog = sConfig.GetIntDefault("irc.gmlog", 1);
++	sIRC.BOTMASK   = sConfig.GetIntDefault("BotMask", 0);
++    sIRC.ojGM1 = sConfig.GetStringDefault("irc.gm1", "[Moderator]");
++    sIRC.ojGM2 = sConfig.GetStringDefault("irc.gm2", "[Game Master]");
++    sIRC.ojGM3 = sConfig.GetStringDefault("irc.gm3", "[BugTracker]");
++    sIRC.ojGM4 = sConfig.GetStringDefault("irc.gm4", "[DevTeam Admin]");
++    sIRC.ojGM5 = sConfig.GetStringDefault("irc.gm5", "[Root Admin]");
++    // REQUIRED GM LEVEL}
++    QueryResult *result = WorldDatabase.PQuery("SELECT `Command`, `gmlevel` FROM `IRC_Commands` ORDER BY `Command`");
++    if(result)
++    {
++        Field *fields = result->Fetch();
++        for (uint64 i=0; i < result->GetRowCount(); i++)
++        {
++            std::string command = fields[0].GetCppString();
++            uint32 gmlvl = fields[1].GetUInt32();
++            if(command == "acct") sIRC.CACCT = gmlvl;
++            if(command == "fun") sIRC.CFUN = gmlvl;
++            if(command == "item") sIRC.CITEM = gmlvl;
++            if(command == "jail") sIRC.CJAIL = gmlvl;
++            if(command == "kick") sIRC.CKICK = gmlvl;
++            if(command == "kill") sIRC._KILL = gmlvl;
++            if(command == "level") sIRC.CLEVEL = gmlvl;
++            if(command == "money") sIRC.CMONEY = gmlvl;
++            if(command == "mute") sIRC.CMUTE = gmlvl;
++            if(command == "player") sIRC.CPLAYER = gmlvl;
++            if(command == "pm") sIRC.CPM = gmlvl;
++            if(command == "restart") sIRC.CRESTART = gmlvl;
++            if(command == "revive") sIRC.CREVIVE = gmlvl;
++            if(command == "saveall") sIRC.CSAVEALL = gmlvl;
++            if(command == "shutdown") sIRC.CSHUTDOWN = gmlvl;
++            if(command == "spell") sIRC.CSPELL = gmlvl;
++            if(command == "sysmsg") sIRC.CSYSMSG = gmlvl;
++            if(command == "tele") sIRC.CTELE = gmlvl;
++            if(command == "who") sIRC.CWHO = gmlvl;
++            if(command == "zbuff") sIRC.CZBUFF = gmlvl;
++            result->NextRow();
++        }
++        delete result;
++    }
++    else
++    {
++        sIRC.CACCT     = 3;
++		sIRC.CFUN      = 3;
++        sIRC.CITEM     = 3;
++        sIRC.CJAIL     = 3;
++        sIRC.CKICK     = 3;
++        sIRC._KILL     = 3;
++        sIRC.CLEVEL    = 3;
++        sIRC.CMONEY    = 3;
++        sIRC.CMUTE     = 3;
++        sIRC.CPLAYER   = 3;
++        sIRC.CPM       = 3;
++        sIRC.CRESTART  = 3;
++        sIRC.CREVIVE   = 3;
++        sIRC.CSAVEALL  = 3;
++        sIRC.CSHUTDOWN = 3;
++        sIRC.CSPELL    = 3;
++        sIRC.CSYSMSG   = 3;
++        sIRC.CTELE     = 3;
++        sIRC.CWHO      = 3;
++        sIRC.CZBUFF    = 3;
++    }
++    // ZBUFF SCRIPT
++    sIRC.ZBUFF_NPC    = sConfig.GetIntDefault("zbuff.npc", 1000);
++    sIRC.ZBUFF_ANIM   = sConfig.GetIntDefault("zbuff.anim", 1000);
++    sIRC.ZBUFF_SPELL1 = sConfig.GetIntDefault("zbuff.spell1", 25389);
++    sIRC.ZBUFF_SPELL2 = sConfig.GetIntDefault("zbuff.spell2", 10157);
++    sIRC.ZBUFF_SPELL3 = sConfig.GetIntDefault("zbuff.spell3", 25312);
++    sIRC.HBUFF_SPELL1 = sConfig.GetIntDefault("help.spell1", 31984);
++    sIRC.HBUFF_SPELL2 = sConfig.GetIntDefault("help.spell2", 35354);
++    sIRC.HBUFF_SPELL3 = sConfig.GetIntDefault("help.spell3", 35354);
++    return true;
++}
++
++std::string IRCClient::GetChatLine(int nItem)
++{
++    return sIRC.ILINES[nItem];
++}
+Index: src/game/mangchat/iconv.h
+===================================================================
+--- src/game/mangchat/iconv.h	(revision 0)
++++ src/game/mangchat/iconv.h	(revision 0)
+@@ -0,0 +1,137 @@
++/* Copyright (C) 1999-2003 Free Software Foundation, Inc.
++   This file is part of the GNU LIBICONV Library.
++
++   The GNU LIBICONV Library is free software; you can redistribute it
++   and/or modify it under the terms of the GNU Library General Public
++   License as published by the Free Software Foundation; either version 2
++   of the License, or (at your option) any later version.
++
++   The GNU LIBICONV Library is distributed in the hope that it will be
++   useful, but WITHOUT ANY WARRANTY; without even the implied warranty of
++   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
++   Library General Public License for more details.
++
++   You should have received a copy of the GNU Library General Public
++   License along with the GNU LIBICONV Library; see the file COPYING.LIB.
++   If not, write to the Free Software Foundation, Inc., 59 Temple Place -
++   Suite 330, Boston, MA 02111-1307, USA.  */
++
++/* When installed, this file is called "iconv.h". */
++
++#ifndef _LIBICONV_H
++#define _LIBICONV_H
++
++#define _LIBICONV_VERSION 0x0109    /* version number: (major<<8) + minor */
++
++#ifdef BUILDING_LIBICONV
++#define LIBICONV_DLL_EXPORTED __declspec(dllexport)
++#else
++#define LIBICONV_DLL_EXPORTED __declspec(dllimport)
++#endif
++extern LIBICONV_DLL_EXPORTED int _libiconv_version;       /* Likewise */
++
++/* We would like to #include any system header file which could define
++   iconv_t, 1. in order to eliminate the risk that the user gets compilation
++   errors because some other system header file includes /usr/include/iconv.h
++   which defines iconv_t or declares iconv after this file, 2. when compiling
++   for LIBICONV_PLUG, we need the proper iconv_t type in order to produce
++   binary compatible code.
++   But gcc's #include_next is not portable. Thus, once libiconv's iconv.h
++   has been installed in /usr/local/include, there is no way any more to
++   include the original /usr/include/iconv.h. We simply have to get away
++   without it.
++   Ad 1. The risk that a system header file does
++   #include "iconv.h"  or  #include_next "iconv.h"
++   is small. They all do #include <iconv.h>.
++   Ad 2. The iconv_t type is a pointer type in all cases I have seen. (It
++   has to be a scalar type because (iconv_t)(-1) is a possible return value
++   from iconv_open().) */
++
++/* Define iconv_t ourselves. */
++#undef iconv_t
++#define iconv_t libiconv_t
++typedef void* iconv_t;
++
++/* Get size_t declaration. */
++#include <stddef.h>
++
++/* Get errno declaration and values. */
++#include <errno.h>
++/* Some systems, like SunOS 4, don't have EILSEQ. Some systems, like BSD/OS,
++   have EILSEQ in a different header.  On these systems, define EILSEQ
++   ourselves. */
++#ifndef EILSEQ
++#define EILSEQ @EILSEQ@
++#endif
++
++
++#ifdef __cplusplus
++extern "C" {
++#endif
++
++
++/* Allocates descriptor for code conversion from encoding `fromcode' to
++   encoding `tocode'. */
++#ifndef LIBICONV_PLUG
++#define iconv_open libiconv_open
++#endif
++extern LIBICONV_DLL_EXPORTED iconv_t iconv_open (const char* tocode, const char* fromcode);
++
++/* Converts, using conversion descriptor `cd', at most `*inbytesleft' bytes
++   starting at `*inbuf', writing at most `*outbytesleft' bytes starting at
++   `*outbuf'.
++   Decrements `*inbytesleft' and increments `*inbuf' by the same amount.
++   Decrements `*outbytesleft' and increments `*outbuf' by the same amount. */
++#ifndef LIBICONV_PLUG
++#define iconv libiconv
++#endif
++extern LIBICONV_DLL_EXPORTED size_t iconv (iconv_t cd, const char* * inbuf, size_t *inbytesleft, char* * outbuf, size_t *outbytesleft);
++
++/* Frees resources allocated for conversion descriptor `cd'. */
++#ifndef LIBICONV_PLUG
++#define iconv_close libiconv_close
++#endif
++extern LIBICONV_DLL_EXPORTED int iconv_close (iconv_t cd);
++
++
++#ifndef LIBICONV_PLUG
++
++/* Nonstandard extensions. */
++
++/* Control of attributes. */
++#define iconvctl libiconvctl
++extern LIBICONV_DLL_EXPORTED int iconvctl (iconv_t cd, int request, void* argument);
++
++/* Requests for iconvctl. */
++#define ICONV_TRIVIALP            0  /* int *argument */
++#define ICONV_GET_TRANSLITERATE   1  /* int *argument */
++#define ICONV_SET_TRANSLITERATE   2  /* const int *argument */
++#define ICONV_GET_DISCARD_ILSEQ   3  /* int *argument */
++#define ICONV_SET_DISCARD_ILSEQ   4  /* const int *argument */
++
++/* Listing of locale independent encodings. */
++#define iconvlist libiconvlist
++extern LIBICONV_DLL_EXPORTED void iconvlist (int (*do_one) (unsigned int namescount,
++                                      const char * const * names,
++                                      void* data),
++                       void* data);
++
++/* Support for relocatable packages.  */
++
++/* Sets the original and the current installation prefix of the package.
++   Relocation simply replaces a pathname starting with the original prefix
++   by the corresponding pathname with the current prefix instead.  Both
++   prefixes should be directory names without trailing slash (i.e. use ""
++   instead of "/").  */
++extern LIBICONV_DLL_EXPORTED void libiconv_set_relocation_prefix (const char *orig_prefix,
++					    const char *curr_prefix);
++
++#endif
++
++
++#ifdef __cplusplus
++}
++#endif
++
++
++#endif /* _LIBICONV_H */
+Index: src/game/mangchat/IRCLog.h
+===================================================================
+--- src/game/mangchat/IRCLog.h	(revision 0)
++++ src/game/mangchat/IRCLog.h	(revision 0)
+@@ -0,0 +1,22 @@
++#ifndef _IRC_LOG_H
++#define _IRC_LOG_H
++
++#include "Common.h"
++#include <fstream>
++
++class IRCLog
++{
++    public:
++        IRCLog();
++        ~IRCLog();
++
++    public:
++        void WriteLog(const char *what, ...);
++		std::string GetLogDateStr() const;
++		std::string GetLogDateTimeStr() const;
++    private:
++        std::ofstream ircLogfile;
++};
++
++
++#endif
+Index: src/game/mangchat/MCS_OnlinePlayers.cpp
+===================================================================
+--- src/game/mangchat/MCS_OnlinePlayers.cpp	(revision 0)
++++ src/game/mangchat/MCS_OnlinePlayers.cpp	(revision 0)
+@@ -0,0 +1,73 @@
++#include "MCS_OnlinePlayers.h"
++
++#include "../MapManager.h"
++#include "../ObjectMgr.h"
++#include "../Config/ConfigEnv.h"
++
++mcs_OnlinePlayers::mcs_OnlinePlayers() { CD = NULL; }
++
++mcs_OnlinePlayers::mcs_OnlinePlayers(_CDATA *_CD)
++{
++    //create a new instance of data struct and copy its data
++    CD = new _CDATA();
++    CD->CMD = _CD->CMD;
++    CD->FROM = _CD->FROM;
++    CD->PARAMS = _CD->PARAMS;
++    CD->PCOUNT = _CD->PCOUNT;
++    CD->USER = _CD->USER;
++}
++
++mcs_OnlinePlayers::~mcs_OnlinePlayers()
++{
++    if(CD)
++        delete CD;
++}
++
++void mcs_OnlinePlayers::run()
++{
++    int OnlineCount = 0;
++    std::string IRCOut = "";
++    HashMapHolder<Player>::MapType& m = ObjectAccessor::Instance().GetPlayers();
++    for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
++    {
++        if (itr->second && itr->second->GetSession()->GetPlayer() && itr->second->GetSession()->GetPlayer()->IsInWorld())
++        {
++            OnlineCount++;
++            Player *plr = itr->second->GetSession()->GetPlayer();
++            std::string ChatTag = " ";
++            switch(plr->GetSession()->GetSecurity())
++            {
++                  case 0: ChatTag.append("");break;
++                  case 1: ChatTag.append("\0037"+sIRC.ojGM1);break;
++                  case 2: ChatTag.append("\0037"+sIRC.ojGM2);break;
++                  case 3: ChatTag.append("\0037"+sIRC.ojGM3);break;
++                  case 4: ChatTag.append("\0037"+sIRC.ojGM4);break;
++                  case 5: ChatTag.append("\0037"+sIRC.ojGM5);break;
++            }
++            if(plr->isAFK())
++                ChatTag.append("\002\0037<AFK>\003\002");
++            else if(plr->isDND())
++                ChatTag.append("\002\0037<DND>\003\002");
++            switch (plr->GetTeam())
++            {
++                case 67:ChatTag.append("\0034");break;      //horde
++                case 469:ChatTag.append("\00312");break;    //alliance
++            }
++
++            IRCOut.append(IRCCmd::MakeMsg("%s\002%s\003\017\002(%d)\002\017", ChatTag.c_str(), plr->GetName(), plr->getLevel()));
++
++            // after XX players have been added to the string
++            // output to irc and reset for the next XX
++            if(OnlineCount % sIRC.onlrslt == 0)
++            {
++                sIRC.Send_IRC_Channel(IRCCmd::ChanOrPM(CD), IRCCmd::MakeMsg("\002 %s", IRCOut.c_str()), true);
++                IRCOut = "";
++                ZThread::Thread::sleep(1000);
++            }
++        }
++    }
++    // Remainder in IRCOUT && Total plyersonline
++    sIRC.Send_IRC_Channel(IRCCmd::ChanOrPM(CD), IRCCmd::MakeMsg("\002Players Online(%d):\017 %s", OnlineCount, IRCOut.c_str()), true);
++
++    sIRC.Script_Lock[MCS_Players_Online] = false;
++}
+Index: src/game/mangchat/MCGame.cpp
+===================================================================
+--- src/game/mangchat/MCGame.cpp	(revision 0)
++++ src/game/mangchat/MCGame.cpp	(revision 0)
+@@ -0,0 +1,202 @@
++#include "MCGame.h"
++#include "IRCClient.h"
++
++#define GAME_CHANNEL sIRC._irc_chan[0]
++
++MC_Game::MC_Game()
++{
++
++    CardsSuit[0] = "spades";
++    CardsSuit[1] = "diamonds";
++    CardsSuit[2] = "clubs";
++    CardsSuit[3] = "hearts";
++
++    CardsRank[0] = "ace";
++    CardsRank[1] = "2";
++    CardsRank[2] = "3";
++    CardsRank[3] = "4";
++    CardsRank[4] = "5";
++    CardsRank[5] = "6";
++    CardsRank[6] = "7";
++    CardsRank[7] = "8";
++    CardsRank[8] = "9";
++    CardsRank[9] = "10";
++    CardsRank[10] = "jack";
++    CardsRank[11] = "queen";
++    CardsRank[12] = "king";
++}
++
++MC_Game::~MC_Game()
++{
++
++
++
++}
++
++void MC_Game::run()
++{
++    int pokerPot = 0;
++
++    sIRC.Send_IRC_Channel(GAME_CHANNEL, "A new game will start in 10 seconds type 'join' to play");
++    ZThread::Thread::sleep(10000);
++
++    std::string playerlist = "";
++
++    for(std::list<gPlayer*>::iterator i=sIRC.GamePlayers.begin(); i!=sIRC.GamePlayers.end();i++)
++    {
++        playerlist.append((*i)->name);
++
++       // pokerPot += (*i)->cBet;
++        
++        playerlist.append("(1000) ");
++    }
++
++    sIRC.Send_IRC_Channel(GAME_CHANNEL, "Game starting with :" + playerlist);
++
++    PokerGame();
++}
++
++void MC_Game::PokerGame()
++{
++    srand(time(0));
++    int deck[52];
++
++//    gDealer _Dealer;
++
++    for(int i = 0;i < 52;i++)
++        deck[i] = i;
++
++    for(int s = 0;s < 10;s++)
++    {
++        for(int i = 0;i < 52;i++)
++        {
++            int j = rand() % 52;
++            int temp = deck[i];
++            deck[i] = deck[j];
++            deck[j] = temp;
++        }        
++    }
++
++    for(int i = 0;i < 52;i++)
++    {
++        int cSuit = deck[i] / 13;
++        int cRank = deck[i] % 13;
++
++        std::string cardName = CardsRank[cRank] + " of " + CardsSuit[cSuit];
++
++        PlayCard *NewCard = new PlayCard(deck[i], cSuit, cRank, cardName.c_str());
++        GameDeck.push_back(NewCard);
++    }
++
++    std::string playcards = "";
++    for(std::list<gPlayer*>::iterator i=sIRC.GamePlayers.begin(); i!=sIRC.GamePlayers.end();i++)
++    {
++        std::string phand = "";
++
++        std::list<PlayCard*>::iterator SwapCard1 = GameDeck.begin();       
++        phand.append((*SwapCard1)->fullName);
++        (*i)->Card1 = (*SwapCard1); //(*i)->PlayerHand.push_back((*SwapCard1));
++        GameDeck.erase(GameDeck.begin());
++
++        std::list<PlayCard*>::iterator SwapCard2 = GameDeck.begin();       
++        phand.append(", " + (*SwapCard2)->fullName);
++        (*i)->Card2 = (*SwapCard2);// (*i)->PlayerHand.push_back((*SwapCard2));
++        GameDeck.erase(GameDeck.begin());
++
++        sIRC.Send_IRC_Channel(GAME_CHANNEL, (*i)->name + " has: " + phand);
++    }
++
++    int handcount = 0;
++
++    for(std::list<PlayCard*>::iterator i=GameDeck.begin(); i!=GameDeck.end();i++)
++    {        
++        Dealer.push_back((*i));
++//        _Dealer.Cards[i] = (*i);
++        GameDeck.erase(i, i);
++
++        handcount++;
++        if(handcount == 5)
++            break;
++    }
++
++    for(std::list<PlayCard*>::iterator i=Dealer.begin(); i!=Dealer.end();i++)
++    {
++        playcards.append((*i)->fullName);
++        playcards.append(", ");
++    }
++
++    sIRC.Send_IRC_Channel(GAME_CHANNEL, "Dealer :" + playcards);
++
++    for(std::list<gPlayer*>::iterator i=sIRC.GamePlayers.begin(); i!=sIRC.GamePlayers.end();i++)
++    {
++      //  CheckHand(Dealer, (*i)->Card1, (*i)->Card1);
++    }
++
++
++    // delete Card allocated by new
++    for(std::list<PlayCard*>::iterator i=GameDeck.begin(); i!=GameDeck.end();i++)
++        delete (*i);
++
++
++
++    // delete players allocated by new ands card moved from deck
++    for(std::list<gPlayer*>::iterator i=sIRC.GamePlayers.begin(); i!=sIRC.GamePlayers.end();i++)
++    {
++        delete (*i)->Card1;
++        delete (*i)->Card2;
++        delete (*i);
++    }
++    // delete pointers from deck
++    for(std::list<PlayCard*>::iterator i=Dealer.begin(); i!=Dealer.end();i++)
++        delete (*i);
++    // Clear playerlist
++    sIRC.GamePlayers.clear();
++
++    // Relese game
++    sIRC.Script_Lock[MCS_Poker_Game] = false;
++
++}
++
++
++void MC_Game::CheckHand(PlayCard *Card1, PlayCard *Card2)
++{
++    PlayCard *FullHand[7];
++
++    FullHand[0] = Card1;
++    FullHand[1] = Card2;
++
++    int dCount = 2;
++    for(std::list<PlayCard*>::iterator i=Dealer.begin(); i!=Dealer.end();i++)
++    {
++        FullHand[dCount] = (PlayCard*)(*i);
++        dCount++;
++    }    
++
++    /*
++    int R[5];
++    int S[5];
++    for(i=0; i<5; i++)
++    {
++        R[i] = deck[i]%13;
++        S[i] = deck[i]/13;
++    }
++
++    bool swapped = false;
++    do
++    {
++        swapped = false;
++        for(int i=0; i<4; i++)
++        {
++            if(R[i] > R[i+1])
++            {
++                int temp = R[i];
++                R[i] = R[i+1];
++                R[i+1] = temp;
++                swapped = true;
++            }
++        }
++    }
++    while(swapped == true);
++    */
++
++}
+Index: src/game/mangchat/MCS_OnlinePlayers.h
+===================================================================
+--- src/game/mangchat/MCS_OnlinePlayers.h	(revision 0)
++++ src/game/mangchat/MCS_OnlinePlayers.h	(revision 0)
+@@ -0,0 +1,27 @@
++#ifndef _IRC_CLIENT_ONLINE
++#define _IRC_CLIENT_ONLINE
++
++#include "IRCClient.h"
++#include "IRCCmd.h"
++
++// the reason to run this command multithreaded
++// is to be able to "spread" the output over irc
++// for servers with high player count
++// in order not to freeze the mangchat core with sleep
++// a new thread is spawned it will output the player data
++// evry "10 players" and pauzes to not spam irc
++// in addition the command is locked so i cannot be used
++// while active.
++
++class mcs_OnlinePlayers : public ZThread::Runnable
++{
++    public:
++        mcs_OnlinePlayers();
++        mcs_OnlinePlayers(_CDATA *_CD);
++        ~mcs_OnlinePlayers();
++        void run();
++    public:
++        _CDATA *CD;
++};
++
++#endif
+Index: src/game/mangchat/IRCSock.cpp
+===================================================================
+--- src/game/mangchat/IRCSock.cpp	(revision 0)
++++ src/game/mangchat/IRCSock.cpp	(revision 0)
+@@ -0,0 +1,146 @@
++#include "IRCClient.h"
++#define MAXDATASIZE 512
++#include <fcntl.h>
++
++#include <stdio.h>
++#include <sys/types.h>
++
++
++#define _UNICODE
++
++#ifdef _MBCS
++#undef _MBCS
++#endif
++
++bool IRCClient::InitSock()
++{
++    #ifdef _WIN32
++    WSADATA wsaData;                                        //WSAData
++    if(WSAStartup(MAKEWORD(2,0),&wsaData) != 0)
++    {
++        sLog.outError("IRC Error: Winsock Initialization Error");
++        return false;
++    }
++    #endif
++    if ((sIRC.SOCKET = socket(PF_INET, SOCK_STREAM, IPPROTO_TCP)) == -1)
++    {
++        sLog.outError("IRC Error: Socket Error");
++        return false;
++    }
++    int on = 1;
++    if ( setsockopt ( sIRC.SOCKET, SOL_SOCKET, SO_REUSEADDR, ( const char* ) &on, sizeof ( on ) ) == -1 )
++    {
++        sLog.outError("IRC Error: Invalid Socket");
++        return false;
++    }
++    #ifdef _WIN32
++    u_long iMode = 0;
++    ioctlsocket(sIRC.SOCKET, FIONBIO, &iMode);
++    #else
++    fcntl(sIRC.SOCKET, F_SETFL, O_NONBLOCK);                // set to non-blocking
++    fcntl(sIRC.SOCKET, F_SETFL, O_ASYNC);                   // set to asynchronous I/O
++    #endif
++    return true;
++}
++
++bool IRCClient::Connect(const char *cHost, int nPort)
++{
++    sIRC.Connected = false;
++    struct hostent *he;
++    if ((he=gethostbyname(cHost)) == NULL)
++    {
++        sLog.outError("IRCLIENT: Could not resolve host: %s", cHost);
++        return false;
++    }
++    struct sockaddr_in their_addr;
++    their_addr.sin_family = AF_INET;
++    their_addr.sin_port = htons(nPort);
++    their_addr.sin_addr = *((struct in_addr *)he->h_addr);
++    memset(&(their_addr.sin_zero), '\0', 8);
++    if (::connect(sIRC.SOCKET, (struct sockaddr *)&their_addr, sizeof(struct sockaddr)) == -1)
++    {
++        sLog.outError("IRCLIENT: Cannot connect to %s", cHost);
++        return false;
++    }
++    //FD_ZERO(&sIRC.sfdset);
++    //FD_SET(sIRC.SOCKET,&sIRC.sfdset);
++    sIRC.Connected = true;
++    return true;
++}
++
++bool IRCClient::Login(std::string sNick, std::string sUser, std::string sPass)
++{
++    char hostname[128];
++    gethostname(hostname, sizeof(hostname));
++    if(SendIRC("HELLO"))
++        if(SendIRC("PASS " + sPass))
++            if(SendIRC("NICK " + sNick))
++                if(SendIRC("USER " + sUser + " " + (std::string)hostname + " VisualDreams :MangChat 1.01"))
++                    return true;
++    return false;
++}
++
++bool IRCClient::SendData(const char *data)
++{
++    if(sIRC.Connected)
++    {
++        if (send(sIRC.SOCKET, data, strlen(data), 0) == -1)
++        {
++            sLog.outError("IRC Error: Socket Receieve ** \n");
++            //Disconnect();
++            return false;
++        }
++    }
++    return true;
++}
++
++bool IRCClient::SendIRC(std::string data)
++{
++    std::string RealData = data + "\n";
++    return SendData(RealData.c_str());
++}
++
++void IRCClient::Disconnect()
++{
++    if(sIRC.SOCKET)
++    {
++        #ifdef _WIN32
++        closesocket(sIRC.SOCKET);
++        //WSACleanup();
++        #else
++        close(sIRC.SOCKET);
++        #endif
++    }
++}
++
++void IRCClient::SockRecv()
++{
++//    wchar_t bufferdata;
++
++    char szBuffer[MAXDATASIZE];
++
++    memset(szBuffer, 0, MAXDATASIZE );
++    
++    int nBytesRecv = ::recv(sIRC.SOCKET, szBuffer, MAXDATASIZE - 1, 0 );
++    if ( nBytesRecv == -1 )
++    {
++        sLog.outError("Connection lost.");
++        sIRC.Connected = false;
++    }
++    else
++    {
++        if (-1 == nBytesRecv)
++        {
++            sLog.outError("Error occurred while receiving from socket.");
++        }
++        else
++        {
++            std::string reply;
++            std::istringstream iss(szBuffer);
++            while(getline(iss, reply))
++            {
++                Handle_IRC(reply);
++            }
++        }
++    }
++}
+Index: src/game/Player.cpp
+===================================================================
+--- src/game/Player.cpp	(revision 5318)
++++ src/game/Player.cpp	(working copy)
+@@ -57,6 +57,7 @@
+ #include "Chat.h"
+ #include "Database/DatabaseImpl.h"
+ #include "Spell.h"
++#include "mangchat/IRCClient.h"
+ 
+ #include <cmath>
+ 
+@@ -1673,6 +1674,8 @@
+         if(m_items[i])
+             m_items[i]->AddToWorld();
+     }
++	if(sIRC.ajoin == 1)
++	    sIRC.AutoJoinChannel(this);
+ }
+ 
+ void Player::RemoveFromWorld()
+Index: src/mangosd/CliRunnable.cpp
+===================================================================
+--- src/mangosd/CliRunnable.cpp	(revision 5318)
++++ src/mangosd/CliRunnable.cpp	(working copy)
+@@ -34,6 +34,7 @@
+ #include "AccountMgr.h"
+ #include "CliRunnable.h"
+ #include "MapManager.h"
++#include "mangchat/IRCClient.h"
+ 
+ //CliCommand and CliCommandHolder are defined in World.h to avoid cyclic deps
+ 
+@@ -174,6 +175,8 @@
+     str += text;
+     sWorld.SendWorldText(str.c_str(), NULL);
+     zprintf("Broadcasting to the world:%s\r\n",str.c_str());
++	if((sIRC.BOTMASK & 256) != 0)
++		sIRC.Send_IRC_Channels(sIRC.MakeMsg("04,08*[!]*SysMsg*[!]* %s 04,08*[!]*SysMsg*[!]*", "%s", text));
+ }
+ 
+ /// Print the list of commands and associated description
+Index: src/mangosd/mangosd.conf.in
+===================================================================
+--- src/mangosd/mangosd.conf.in	(revision 5318)
++++ src/mangosd/mangosd.conf.in	(working copy)
+@@ -538,3 +538,126 @@
+ # Default: 0 (false)
+ #          1 (true)
+ Event.Announce = 0
++
++###########################################
++#      MangChat IRC Bot Configuration     #
++###########################################
++#Enable IRC Addon
++irc.active = 1
++
++# IRC ConnectCode
++irc.icc = 001
++
++# IRC Server Host/IP
++irc.host = "irc.freenode.net"
++
++# IRC Server Port
++irc.port = "6667"
++
++# IRC User Name
++irc.user = "MangChat"
++
++# IRC Nickname
++irc.nick = "MangChat"
++
++# IRC Password (Nickserv)
++irc.pass = "NSPASSWORD"
++
++# IRC Auth (0 - Disable) (1 - NickServ) (2 - QuakeNet)
++irc.auth = 1
++
++# Leave A Defined IRC Channel On Server Connect? (0 - Disable) (1- Enable)
++irc.ldef = 0
++
++# IRC Channel To Leave On Server Connect If "irc.ldef = 1"
++irc.defchan = "lobby"
++
++# Time To Wait Before Attemptimg Connection Again (30000 = 30 Seconds)
++irc.wct = 30000
++
++# Maximum Attempts To Try IRC Server.
++irc.maxattempt = 20
++
++# AutoJoin IRC Channel If Kicked? (0 - Disable) (1 - Enable)
++irc.autojoin_kick = 1
++
++# IRC Command Prefix. Ex. (.)online all
++irc.command_prefix = "."
++
++# IRC Channel OnJoin/Restart Messages
++irc.joinmsg = "Whhaaazzzzaaaa, MangChat 1.3.1 Baby!!"
++irc.rstmsg  = "MangChat Is Restarting, I Will Be Right Back!!"
++irc.kickmsg = "Do Not Kick Me Again, Severe Actions Will Be Taken!"
++
++# IRC Channel To Join For Multiple Channels Un-Comment And Change The Following Lines.. (Channels ARE Case-Sensitive)
++irc.chan_1 = "IRCChannel"
++# irc.chan_2 = "chan2"
++# irc.chan_3 = "chan3"
++# irc.chan_4 = "chan4"
++# irc.chan_5 = "chan5"
++
++# irc.chan_1 Is Linked To wow.chan_1 And So On.. You Can Have Up To 10 Linked Channels.
++
++# WoW Channel To Join. For Multiple Channels Un-Comment And Change The Following Lines.. (Channels ARE Case-Sensitive)
++wow.chan_1 = "world"
++# wow.chan_2 = "LookingForGroup"
++# wow.chan_3 = "chan3"
++# wow.chan_4 = "chan4"
++# wow.chan_5 = "chan5"
++
++# Force Players To AutoJoin A WoW InGame Channel? (0 - Disable) (1 - Enable)
++# Atleast One Player Must Be In The Channel On Server Start, And Atleast One Person Online For Invite To Work.
++irc.ajoin = 1
++# If AutoJoin Is Enabled What Channel To Force Invites?
++irc.ajchan = "world"
++
++# Maximum Number Of Results Per Line For The online Command.
++irc.online.result = 30
++
++# Chat String Configuration
++# wow_irc Is The String Shown In IRC, The Rest Should Be Self-Explanatory
++# You Can Specify Where The GM OnJoin Tag Is Placed By Changing chat.join_wow or chat.leave_wow
++# All Words With $ Can Be Moved Anywhere In The String
++# *** The GM Tag It Self Can Also Be Changed Below ***
++chat.wow_irc = "<WoW>[$Name($Level)] $Msg"
++chat.irc_wow = "<IRC>[$Name]: $Msg"
++chat.join_wow = "12>>04 $GM$Name Joined The $Channel Channel!"
++chat.join_irc = "[$Name]: Has Joined IRC!"
++chat.leave_wow = "12<<04 $GM$Name Left The $Channel Channel!"
++chat.leave_irc = "[$Name]: Has Left IRC!"
++chat.change_nick = "<> $Name Is Now Known As $NewName!"
++
++# BotMask - This Defines What The Bot Announces, If Its 0 Everything Is Disabled.
++# ** Simply Add The Values Of The Elements You Want To Create This Mask.
++# *** Ex: WoW join/leaves are 1 and IRC join/leaves are 2, If You Want Both Of These Active And Nothing Else, Then The BotMask is 3.
++# Display WoW Chan Join/Leaves In IRC: 1
++# Display IRC Chan Join/Leaves/NickChanges In WoW: 2
++# Display Unknown Command Message When Trigger Is Used And No Command Exists: 4
++# Announce Security Level > 0 As GM At Login: 8
++# Announce GM In GM ON State AS GM At Login: 16
++# Return All PM Commands To NOTICE Queries: 32
++# Return All Channel Commands To NOTICE Queries: 64
++# Display Nick Changes From IRC In WOW: 128
++# Display WoW Announces/Notifies In IRC: 256
++# Do Not Let Players Use Commands On Higher GM Level Players: 512
++Botmask = 1023
++
++# ZBUFF Options (Script To Spawn NPC, Then Cast 3 Specified Spells On Player, Then NPC Leaves)
++zbuff.npc = 20692
++zbuff.anim = 23782
++zbuff.spell1 = 25389
++zbuff.spell2 = 10157
++zbuff.spell3 = 25312
++
++###########################################
++# Misc Options
++### Minimum GM Level To Not Show Login/Pass In irc.log
++irc.gmlog = 1
++### Enable MangChat Games *Experimental* - (0 - Disable) (1 - Enable)
++irc.fun.games = 0
++### GM Tag To Prefix To GM Onjoin
++irc.gm1 = "[Moderator]"
++irc.gm2 = "[Game Master]"
++irc.gm3 = "[BugTracker]"
++irc.gm4 = "[DevTeam Admin]"
++irc.gm5 = "[SysOP]"
+Index: src/mangosd/Master.cpp
+===================================================================
+--- src/mangosd/Master.cpp	(revision 5318)
++++ src/mangosd/Master.cpp	(working copy)
+@@ -38,6 +38,7 @@
+ #include "RASocket.h"
+ #include "ScriptCalls.h"
+ #include "Util.h"
++#include "mangchat/IRCClient.h"
+ 
+ #include "sockets/TcpSocket.h"
+ #include "sockets/Utility.h"
+@@ -208,6 +209,9 @@
+     uint32 numLoops = (sConfig.GetIntDefault( "MaxPingTime", 30 ) * (MINUTE * 1000000 / socketSelecttime));
+     uint32 loopCounter = 0;
+ 
++	ZThread::Thread irc(new IRCClient);
++	irc.setPriority ((ZThread::Priority )2);
++
+     ///- Wait for termination signal
+     while (!World::m_stopEvent)
+     {
+@@ -437,3 +441,15 @@
+ 
+ 
+ 
++
++
++
++
++
++
++
++
++
++
++
++
+Index: src/shared/Database/DBCfmt.cpp
+===================================================================
+--- src/shared/Database/DBCfmt.cpp	(revision 5318)
++++ src/shared/Database/DBCfmt.cpp	(working copy)
+@@ -22,7 +22,7 @@
+ const char BattlemasterListEntryfmt[]="niiixxxxxiiiixxssssssssssssssssx";
+                                                             // data not sorted (more compact store)
+ const char ChatChannelsEntryfmt[]="iixssssssssssssssssxxxxxxxxxxxxxxxxxx";
+-const char ChrClassesEntryfmt[]="nxixxxxxxxxxxxxxxxxxxxxx";
++const char ChrClassesEntryfmt[]="nxixssssssssssssssssxxxx";
+ const char ChrRacesEntryfmt[]="nxixiixxixxxxissssssssssssssssxxxxx";
+ const char CreatureDisplayInfofmt[]="nxxxfxxxxxxxxxxxxxxxx";
+ const char CreatureFamilyfmt[]="nxxxxxiissssssssssssssssxx";
+Index: src/shared/Database/DBCStructure.h
+===================================================================
+--- src/shared/Database/DBCStructure.h	(revision 5318)
++++ src/shared/Database/DBCStructure.h	(working copy)
+@@ -105,7 +105,7 @@
+                                                             // 1-2, unused
+     uint32      powerType;                                  // 3
+                                                             // 4, unused
+-    //char*       name[16];                                 // 5-20 unused
++    char*       name[16];                                   // 5-20 unused
+                                                             // 21 string flag, unused
+ };
+ 
+Index: win/VC71/game.vcproj
+===================================================================
+--- win/VC71/game.vcproj	(revision 5318)
++++ win/VC71/game.vcproj	(working copy)
+@@ -824,6 +824,70 @@
+ 				RelativePath="..\..\src\game\ThreatManager.h">
+ 			</File>
+ 		</Filter>
++		<Filter
++			Name="IRC"
++			>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCClient.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCClient.h"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCCmd.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCCmd.h"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCCmde.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCConf.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCFunc.h"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCIO.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCLog.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCLog.h"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCSock.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\MCGame.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\MCGame.h"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\MCS_OnlinePlayers.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\MCS_OnlinePlayers.h"
++				>
++			</File>
++		</Filter>
+ 	</Files>
+ 	<Globals>
+ 	</Globals>
+Index: win/VC80/game.vcproj
+===================================================================
+--- win/VC80/game.vcproj	(revision 5318)
++++ win/VC80/game.vcproj	(working copy)
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="Windows-1252"?>
+ <VisualStudioProject
+ 	ProjectType="Visual C++"
+-	Version="8,00"
++	Version="8.00"
+ 	Name="game"
+ 	ProjectGUID="{1DC6C4DA-A028-41F3-877D-D5400C594F88}"
+ 	RootNamespace="game"
+@@ -1106,6 +1106,70 @@
+ 				>
+ 			</File>
+ 		</Filter>
++		<Filter
++			Name="IRC"
++			>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCClient.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCClient.h"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCCmd.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCCmd.h"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCCmde.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCConf.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCFunc.h"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCIO.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCLog.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCLog.h"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCSock.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\MCGame.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\MCGame.h"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\MCS_OnlinePlayers.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\MCS_OnlinePlayers.h"
++				>
++			</File>
++		</Filter>
+ 	</Files>
+ 	<Globals>
+ 	</Globals>
+Index: win/VC90/game.vcproj
+===================================================================
+--- win/VC90/game.vcproj	(revision 5318)
++++ win/VC90/game.vcproj	(working copy)
+@@ -1107,6 +1107,70 @@
+ 				>
+ 			</File>
+ 		</Filter>
++		<Filter
++			Name="IRC"
++			>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCClient.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCClient.h"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCCmd.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCCmd.h"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCCmde.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCConf.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCFunc.h"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCIO.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCLog.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCLog.h"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\IRCSock.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\MCGame.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\MCGame.h"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\MCS_OnlinePlayers.cpp"
++				>
++			</File>
++			<File
++				RelativePath="..\..\src\game\mangchat\MCS_OnlinePlayers.h"
++				>
++			</File>
++		</Filter>		
+ 	</Files>
+ 	<Globals>
+ 	</Globals>

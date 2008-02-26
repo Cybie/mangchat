@@ -24,7 +24,8 @@ bool IRCClient::LoadConfig()
     sIRC.ajchan = sConfig.GetStringDefault("irc.ajchan", "world");
     sIRC.onlrslt = sConfig.GetIntDefault("irc.online.result", 10);
     sIRC.BOTMASK = sConfig.GetIntDefault("Botmask", 0);
-    for(int i = 1; i < MAX_CONF_CHANNELS;i++)
+    sIRC.logfile = sConfig.GetStringDefault("irc.logfile.prefix", "IRC_");
+	for(int i = 1; i < MAX_CONF_CHANNELS;i++)
     {
         std::ostringstream ss;
         ss << i;

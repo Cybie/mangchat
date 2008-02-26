@@ -12,7 +12,8 @@ class IRCLog
 
     public:
         void WriteLog(const char *what, ...);
-
+		std::string GetLogDateStr() const;
+		std::string GetLogDateTimeStr() const;
     private:
         std::ofstream ircLogfile;
 };
