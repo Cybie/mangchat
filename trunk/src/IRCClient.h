@@ -158,7 +158,8 @@ class IRCClient : public ZThread::Runnable
         string  ojGM3;
         string  ojGM4;
         string  ojGM5;
-        int     games;
+        string  logfile;
+		int     games;
 		int     gmlog;
 		// IRC Commands Security Level
         int     CACCT;

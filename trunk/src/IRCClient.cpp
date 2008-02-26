@@ -9,7 +9,6 @@
  */
 
 #include "IRCClient.h"
-#include "Log.h"
 #include "../World.h"
 #include "../ObjectMgr.h"
 #include "../MapManager.h"
@@ -37,7 +36,7 @@ IRCClient::~IRCClient(){}
 // ZThread Entry This function is called when the thread is created in Master.cpp (mangosd)
 void IRCClient::run()
 {
-    sIRC.iLog.WriteLog("[%s] : ****** MaNGOS With MangChat Has Been Started ******", sLog.GetTimestampStr().c_str());
+    sIRC.iLog.WriteLog(" %s : ****** MaNGOS With MangChat Has Been Started ******", sIRC.iLog.GetLogDateTimeStr().c_str());
 
     // future task 
     #ifdef USE_UTF8

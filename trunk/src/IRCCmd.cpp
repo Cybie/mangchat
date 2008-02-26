@@ -445,7 +445,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Unknown Command!", true, MSG_NOTICE);
         if(cValid && dontlog)
         {
-			sIRC.iLog.WriteLog("[ %s ] : [ %s(%d) ] Used Command: [ %s ] With Parameters: [ %s ]", sLog.GetTimestampStr().c_str(), CDATA.USER.c_str(), GetLevel(USER), CDATA.CMD.c_str(), CDATA.PARAMS.c_str());
+			sIRC.iLog.WriteLog(" %s : [ %s(%d) ] Used Command: [ %s ] With Parameters: [ %s ]", sIRC.iLog.GetLogDateTimeStr().c_str(), CDATA.USER.c_str(), GetLevel(USER), CDATA.CMD.c_str(), CDATA.PARAMS.c_str());
         }
         return cValid;
     }
