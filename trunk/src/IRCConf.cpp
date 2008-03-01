@@ -91,7 +91,6 @@ bool IRCClient::LoadConfig()
             if(command == "sysmsg") sIRC.CSYSMSG = gmlvl;
             if(command == "tele") sIRC.CTELE = gmlvl;
             if(command == "who") sIRC.CWHO = gmlvl;
-            if(command == "zbuff") sIRC.CZBUFF = gmlvl;
             result->NextRow();
         }
         delete result;
@@ -117,17 +116,7 @@ bool IRCClient::LoadConfig()
         sIRC.CSYSMSG   = 3;
         sIRC.CTELE     = 3;
         sIRC.CWHO      = 3;
-        sIRC.CZBUFF    = 3;
     }
-    // ZBUFF SCRIPT
-    sIRC.ZBUFF_NPC    = sConfig.GetIntDefault("zbuff.npc", 1000);
-    sIRC.ZBUFF_ANIM   = sConfig.GetIntDefault("zbuff.anim", 1000);
-    sIRC.ZBUFF_SPELL1 = sConfig.GetIntDefault("zbuff.spell1", 25389);
-    sIRC.ZBUFF_SPELL2 = sConfig.GetIntDefault("zbuff.spell2", 10157);
-    sIRC.ZBUFF_SPELL3 = sConfig.GetIntDefault("zbuff.spell3", 25312);
-    sIRC.HBUFF_SPELL1 = sConfig.GetIntDefault("help.spell1", 31984);
-    sIRC.HBUFF_SPELL2 = sConfig.GetIntDefault("help.spell2", 35354);
-    sIRC.HBUFF_SPELL3 = sConfig.GetIntDefault("help.spell3", 35354);
     return true;
 }
 

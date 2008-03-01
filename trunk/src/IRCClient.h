@@ -182,16 +182,6 @@ class IRCClient : public ZThread::Runnable
         int     CSYSMSG;
         int     CTELE;
         int     CWHO;
-        int     CZBUFF;
-        // ZBuff Options
-        int     ZBUFF_NPC;
-        int     ZBUFF_ANIM;
-        int     ZBUFF_SPELL1;
-        int     ZBUFF_SPELL2;
-        int     ZBUFF_SPELL3;
-        int     HBUFF_SPELL1;
-        int     HBUFF_SPELL2;
-        int     HBUFF_SPELL3;
         // BotMask
         int     BOTMASK;
         // Max connect attempt
