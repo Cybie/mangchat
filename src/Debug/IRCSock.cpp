@@ -139,7 +139,7 @@ void IRCClient::SockRecv()
             std::istringstream iss(szBuffer);
             while(getline(iss, reply))
             {
-                Handle_IRC(reply);
+				Handle_IRC(reply);
             }
         }
     }

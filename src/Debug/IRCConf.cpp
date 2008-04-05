@@ -24,7 +24,8 @@ bool IRCClient::LoadConfig()
     sIRC.ajchan = sConfig.GetStringDefault("irc.ajchan", "world");
     sIRC.onlrslt = sConfig.GetIntDefault("irc.online.result", 10);
     sIRC.BOTMASK = sConfig.GetIntDefault("Botmask", 0);
-    for(int i = 1; i < MAX_CONF_CHANNELS;i++)
+    sIRC.logfile = sConfig.GetStringDefault("irc.logfile.prefix", "IRC_");
+	for(int i = 1; i < MAX_CONF_CHANNELS;i++)
     {
         std::ostringstream ss;
         ss << i;
@@ -71,8 +72,8 @@ bool IRCClient::LoadConfig()
         {
             std::string command = fields[0].GetCppString();
             uint32 gmlvl = fields[1].GetUInt32();
-            if(command == "acct") sIRC.CFUN = gmlvl;
-			if(command == "fun") sIRC.CFUN = gmlvl;
+            if(command == "acct") sIRC.CACCT = gmlvl;
+            if(command == "fun") sIRC.CFUN = gmlvl;
             if(command == "item") sIRC.CITEM = gmlvl;
             if(command == "jail") sIRC.CJAIL = gmlvl;
             if(command == "kick") sIRC.CKICK = gmlvl;
@@ -90,7 +91,6 @@ bool IRCClient::LoadConfig()
             if(command == "sysmsg") sIRC.CSYSMSG = gmlvl;
             if(command == "tele") sIRC.CTELE = gmlvl;
             if(command == "who") sIRC.CWHO = gmlvl;
-            if(command == "zbuff") sIRC.CZBUFF = gmlvl;
             result->NextRow();
         }
         delete result;
@@ -116,17 +116,7 @@ bool IRCClient::LoadConfig()
         sIRC.CSYSMSG   = 3;
         sIRC.CTELE     = 3;
         sIRC.CWHO      = 3;
-        sIRC.CZBUFF    = 3;
     }
-    // ZBUFF SCRIPT
-    sIRC.ZBUFF_NPC    = sConfig.GetIntDefault("zbuff.npc", 1000);
-    sIRC.ZBUFF_ANIM   = sConfig.GetIntDefault("zbuff.anim", 1000);
-    sIRC.ZBUFF_SPELL1 = sConfig.GetIntDefault("zbuff.spell1", 25389);
-    sIRC.ZBUFF_SPELL2 = sConfig.GetIntDefault("zbuff.spell2", 10157);
-    sIRC.ZBUFF_SPELL3 = sConfig.GetIntDefault("zbuff.spell3", 25312);
-    sIRC.HBUFF_SPELL1 = sConfig.GetIntDefault("help.spell1", 31984);
-    sIRC.HBUFF_SPELL2 = sConfig.GetIntDefault("help.spell2", 35354);
-    sIRC.HBUFF_SPELL3 = sConfig.GetIntDefault("help.spell3", 35354);
     return true;
 }
 

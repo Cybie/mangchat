@@ -151,7 +151,14 @@ void IRCClient::Handle_IRC(std::string sData)
                 size_t p = sData.find(" ", p2 + 1);
                 std::string FROM = sData.substr(p2 + 1, p - p2 - 1);
                 std::string CHAT = sData.substr(p + 2, sData.size() - p - 3);
-                // if this is our username it means we recieved a PM
+				
+                #ifdef USE_UTF8
+                 std::string chat2 = CHAT;
+                 if(ConvertUTF8("UTF-8", "char", chat2.c_str(), chat2))
+                   CHAT = chat2;
+                #endif
+
+                 // if this is our username it means we recieved a PM
                 if(FROM == sIRC._Nick)
                 {
                     if(CHAT.find("\001VERSION\001") < CHAT.size())
@@ -243,7 +250,7 @@ void IRCClient::Send_IRC_Channel(std::string sChannel, std::string sMsg, bool No
 
     #ifdef USE_UTF8
         std::string sMsg2 = sMsg;
-    	if(ConvertUTF8("char", "UTF-8", sMsg2.c_str(), sMsg2))
+        if(ConvertUTF8("char", "UTF-8", sMsg2.c_str(), sMsg2))
             sMsg = sMsg2;
     #endif
 
@@ -316,13 +323,13 @@ void IRCClient::Send_WoW_Channel(const char *channel, std::string chat)
 {
     if(!(strlen(channel) > 0))
         return;
-
+/*
     #ifdef USE_UTF8
         std::string chat2 = chat;
         if(ConvertUTF8("UTF-8", "char", chat2.c_str(), chat2))
             chat = chat2;
     #endif
-
+*/
     HashMapHolder<Player>::MapType& m = ObjectAccessor::Instance().GetPlayers();
     for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
     {
@@ -409,6 +416,7 @@ bool IRCClient::ConvertUTF8(const char* tocode, const char* fromcode, const char
 {
     // extern void error();
     iconv_t cd = iconv_open(tocode, fromcode);
+	//    iconv_t cd = iconv_open("char", "UTF-8");
     if (cd != (iconv_t) -1)
     {
         size_t size_orig = strlen(chat);

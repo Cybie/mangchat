@@ -78,7 +78,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
                     Account_Player(&CDATA);
                     break;
                 case E_SIZE:
-                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"acct <Player> </> )", true, MSG_NOTICE);
+                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"acct <Player> <(un)lock/rename> )", true, MSG_NOTICE);
                     break;
                 case E_AUTH:
                     AuthValid = false;
@@ -397,22 +397,6 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             }
             cValid = true;
         }
-        else if(CDATA.CMD == "zbuff")
-        {
-            switch(ParamsValid(&CDATA, 1, sIRC.CZBUFF))
-            {
-                case E_OK:
-                    Zbuff_Player(&CDATA);
-                    break;
-                case E_SIZE:
-                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"zbuff <Player> )", true, MSG_NOTICE);
-                    break;
-                case E_AUTH:
-                    AuthValid = false;
-                    break;
-            }
-            cValid = true;
-        }
         else if(CDATA.CMD == "startgame" && sIRC.games == 1)
         {
             //if(!sIRC.Script_Lock[MCS_Poker_Game])
@@ -445,7 +429,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Unknown Command!", true, MSG_NOTICE);
         if(cValid && dontlog)
         {
-			sIRC.iLog.WriteLog("[ %s ] : [ %s(%d) ] Used Command: [ %s ] With Parameters: [ %s ]", sLog.GetTimestampStr().c_str(), CDATA.USER.c_str(), GetLevel(USER), CDATA.CMD.c_str(), CDATA.PARAMS.c_str());
+			sIRC.iLog.WriteLog(" %s : [ %s(%d) ] Used Command: [ %s ] With Parameters: [ %s ]", sIRC.iLog.GetLogDateTimeStr().c_str(), CDATA.USER.c_str(), GetLevel(USER), CDATA.CMD.c_str(), CDATA.PARAMS.c_str());
         }
         return cValid;
     }

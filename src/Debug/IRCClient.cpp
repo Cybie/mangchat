@@ -9,7 +9,6 @@
  */
 
 #include "IRCClient.h"
-#include "Log.h"
 #include "../World.h"
 #include "../ObjectMgr.h"
 #include "../MapManager.h"
@@ -37,12 +36,13 @@ IRCClient::~IRCClient(){}
 // ZThread Entry This function is called when the thread is created in Master.cpp (mangosd)
 void IRCClient::run()
 {
-    sIRC.iLog.WriteLog("[%s] : ****** MaNGOS With MangChat Has Been Started ******", sLog.GetTimestampStr().c_str());
+    sIRC.iLog.WriteLog(" %s : ****** MaNGOS With MangChat Has Been Started ******", sIRC.iLog.GetLogDateTimeStr().c_str());
 
     // future task 
     #ifdef USE_UTF8
 	setlocale(LC_CTYPE, "en_ca.UTF-8");
     #endif
+
 
     // before we begin we wait a few 
     // mangos is still starting up and max screw
@@ -56,6 +56,7 @@ void IRCClient::run()
         "***** MangChat: Version 1.3.0.0 *******");
     // Initialize connection count 0
     int cCount = 0;
+
     // Clean Up MySQL Tables
     sLog.outString("*** MangChat: Cleaning Up Inchan Table*");
     WorldDatabase.PExecute("DELETE FROM `IRC_Inchan`");

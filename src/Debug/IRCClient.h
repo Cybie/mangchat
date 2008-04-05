@@ -106,7 +106,7 @@ class IRCClient : public ZThread::Runnable
         void AutoJoinChannel(Player *plr);
 		bool ConvertUTF8(const char* tocode, const char* fromcode, const char *chat, std::string &converted_utf);
 
-    public:
+	public:
         bool Script_Lock[5];
 
     public:
@@ -159,7 +159,8 @@ class IRCClient : public ZThread::Runnable
         string  ojGM3;
         string  ojGM4;
         string  ojGM5;
-        int     games;
+        string  logfile;
+		int     games;
 		int     gmlog;
 		// IRC Commands Security Level
         int     CACCT;
@@ -182,16 +183,6 @@ class IRCClient : public ZThread::Runnable
         int     CSYSMSG;
         int     CTELE;
         int     CWHO;
-        int     CZBUFF;
-        // ZBuff Options
-        int     ZBUFF_NPC;
-        int     ZBUFF_ANIM;
-        int     ZBUFF_SPELL1;
-        int     ZBUFF_SPELL2;
-        int     ZBUFF_SPELL3;
-        int     HBUFF_SPELL1;
-        int     HBUFF_SPELL2;
-        int     HBUFF_SPELL3;
         // BotMask
         int     BOTMASK;
         // Max connect attempt
