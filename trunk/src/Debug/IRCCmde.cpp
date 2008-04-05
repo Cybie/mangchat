@@ -9,6 +9,7 @@
 #include "../ObjectMgr.h"
 #include "../Language.h"
 #include "../SpellAuras.h"
+#include "../SystemConfig.h"
 #include "../Config/ConfigEnv.h"
 
 #define Send_Player(p, m)           sIRC.Send_WoW_Player(p, m)
@@ -25,7 +26,7 @@ void IRCCmd::Handle_Login(_CDATA *CD)
     std::string* _PARAMS = getArray(CD->PARAMS, 2);
     if(!IsLoggedIn(CD->USER))
     {
-        QueryResult *result = loginDatabase.PQuery("SELECT `gmlevel` FROM `account` WHERE `username`='%s' AND `I`=SHA1(CONCAT(UPPER(`username`),':',UPPER('%s')));", _PARAMS[0].c_str(), _PARAMS[1].c_str());
+        QueryResult *result = loginDatabase.PQuery("SELECT `gmlevel` FROM `account` WHERE `username`='%s' AND `sha_pass_hash`=SHA1(CONCAT(UPPER(`username`),':',UPPER('%s')));", _PARAMS[0].c_str(), _PARAMS[1].c_str());
         if (result)
         {
             Field *fields = result->Fetch();
@@ -96,7 +97,7 @@ void IRCCmd::Account_Player(_CDATA *CD)
 				plr->SetAtLoginFlag(AT_LOGIN_RENAME);
 				Send_Player(plr, MakeMsg("%s Has Requested You Change This Characters Name, Rename Will Be Forced On Next Login!", CD->USER.c_str()));
 			}
-			CharacterDatabase.PExecute("UPDATE `character` SET `at_login` = `at_login` | '1' WHERE `guid` = '%u'", guid);
+			CharacterDatabase.PExecute("UPDATE `characters` SET `at_login` = `at_login` | '1' WHERE `guid` = '%u'", guid);
 			Send_IRC(ChanOrPM(CD), " \00313["+_PARAMS[0]+"] : Has Been Forced To Change Their Characters Name, Rename Will Be Forced On Next Login!",true);
 		}
 	}
@@ -249,9 +250,12 @@ void IRCCmd::Info_Server(_CDATA *CD)
     char clientsNum [50];
     sprintf(clientsNum, "%u", sWorld.GetActiveSessionCount());
     char maxClientsNum [50];
-    sprintf(maxClientsNum, "%u", sWorld.GetMaxSessionCount());
+    sprintf(maxClientsNum, "%u", sWorld.GetMaxActiveSessionCount());
     std::string str = secsToTimeString(sWorld.GetUptime());
-    Send_IRC(ChanOrPM(CD), " Number Of Players Online: " + (std::string)clientsNum + ". (Max Since Last Restart: " + (std::string)maxClientsNum + ")" + " Uptime: " + str, true);
+	std::string svnrev = _FULLVERSION;
+	Send_IRC(ChanOrPM(CD), "\x2 Number Of Players Online:\x3\x31\x30 " + (std::string)clientsNum + "\xF |\x2 Max Since Last Restart:\x3\x31\x30 "+(std::string)maxClientsNum+"\xF |\x2 UpTime:\x3\x31\x30 "+str, true);
+	Send_IRC(ChanOrPM(CD), "\x2 MaNGOS SVN Rev:\x3\x31\x30 "+svnrev, true);
+	//Send_IRC(ChanOrPM(CD), " Number Of Players Online: " + (std::string)clientsNum + ". (Max Since Last Restart: " + (std::string)maxClientsNum + ")" + " Uptime: " + str + "SVN Rev: " +svnrev, true);
 }
 
 void IRCCmd::Item_Player(_CDATA *CD)
@@ -317,7 +321,7 @@ void IRCCmd::Item_Player(_CDATA *CD)
             Send_IRCA(CD->USER, " \0034[ERROR] : "+_PARAMS[0]+" Is Not Online!", true, MSG_NOTICE);
             return;
         }
-        sLog.outDetail(LANG_ADDITEM, itemId, count);
+        sLog.outDetail("Command : Additem, itemId = %i, amount = %i", itemId, count);
         ItemPrototype const *pProto = objmgr.GetItemPrototype(itemId);
         if(!pProto)
         {
@@ -330,11 +334,11 @@ void IRCCmd::Item_Player(_CDATA *CD)
         // if possible create full stacks for better performance
         while(countForStore >= pProto->Stackable)
         {
-            uint16 dest;
+            ItemPosCountVec dest;
             uint8 msg = plTarget->CanStoreNewItem( NULL_BAG, NULL_SLOT, dest, itemId, pProto->Stackable, false );
             if( msg == EQUIP_ERR_OK )
             {
-                item = plTarget->StoreNewItem( dest, itemId, pProto->Stackable, true, Item::GenerateItemRandomPropertyId(itemId));
+                item = plTarget->StoreNewItem( dest, itemId, true, Item::GenerateItemRandomPropertyId(itemId));
                 countForStore-= pProto->Stackable;
             }
             else
@@ -343,12 +347,12 @@ void IRCCmd::Item_Player(_CDATA *CD)
         // create remaining items
         if(countForStore > 0 && countForStore < pProto->Stackable)
         {
-            uint16 dest;
+            ItemPosCountVec dest;
             uint8 msg = plTarget->CanStoreNewItem( NULL_BAG, NULL_SLOT, dest, itemId, countForStore, false );
             // if can add all countForStore items
             if( msg == EQUIP_ERR_OK )
             {
-                item = plTarget->StoreNewItem( dest, itemId, countForStore, true, Item::GenerateItemRandomPropertyId(itemId));
+                item = plTarget->StoreNewItem( dest, itemId, true, Item::GenerateItemRandomPropertyId(itemId));
                 countForStore = 0;
             }
         }
@@ -356,12 +360,13 @@ void IRCCmd::Item_Player(_CDATA *CD)
         while(countForStore > 0)
         {
             // find not full stack (last possable place for times after prev. checks)
-            uint16 dest;
+            ItemPosCountVec dest;
+            uint16 dest2;
             uint8 msg = plTarget->CanStoreNewItem( NULL_BAG, NULL_SLOT, dest, itemId, 1, false );
             if( msg == EQUIP_ERR_OK )                       // found
             {
                 // we can fill this stack to max stack size
-                Item* itemStack = plTarget->GetItemByPos(dest);
+                Item* itemStack = plTarget->GetItemByPos(dest2);
                 if(itemStack)
                 {
                     uint32 countForStack = pProto->Stackable - itemStack->GetCount();
@@ -369,7 +374,7 @@ void IRCCmd::Item_Player(_CDATA *CD)
                     uint8 msg = plTarget->CanStoreNewItem( itemStack->GetBagSlot(), itemStack->GetSlot(), dest, itemId, countForStack, false );
                     if( msg == EQUIP_ERR_OK )
                     {
-                        item = plTarget->StoreNewItem( dest, itemId, countForStack, true, Item::GenerateItemRandomPropertyId(itemId));
+                        item = plTarget->StoreNewItem( dest, itemId, true, Item::GenerateItemRandomPropertyId(itemId));
                         countForStore-= countForStack;
                     }
                     else
@@ -413,7 +418,7 @@ void IRCCmd::Jail_Player(_CDATA *CD)
         {
             Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Nice Try, This Player Has A Higher GM Level Than You! [ %i ]", AcctLevel(_PARAMS[0])), true, MSG_NOTICE);
 	        return;
-        }             
+        }
 		if (Player *plr = GetPlayer(_PARAMS[0]))
         { 
 			std::string sReason = "";
@@ -538,13 +543,13 @@ void IRCCmd::Level_Player(_CDATA *CD)
             WorldPacket data;
             ChatHandler CH(chr->GetSession());
             if(i_oldlvl == i_newlvl)
-                CH.FillSystemMessageData(&data, LANG_YOURS_LEVEL_PROGRESS_RESET);
+                CH.FillSystemMessageData(&data, "Your level progress has been reset.");
             else
             if(i_oldlvl < i_newlvl)
-                CH.FillSystemMessageData(&data, fmtstring(LANG_YOURS_LEVEL_UP,i_newlvl-i_oldlvl));
+                CH.FillSystemMessageData(&data, fmtstring("You have been leveled up (%i)",i_newlvl-i_oldlvl));
             else
             if(i_oldlvl > i_newlvl)
-                CH.FillSystemMessageData(&data, fmtstring(LANG_YOURS_LEVEL_DOWN,i_newlvl-i_oldlvl));
+                CH.FillSystemMessageData(&data, fmtstring("You have been leveled down (%i)",i_newlvl-i_oldlvl));
             chr->GetSession()->SendPacket( &data );
         }
         else
@@ -587,7 +592,7 @@ void IRCCmd::Money_Player(_CDATA *CD)
     {
 		Player *chr = objmgr.GetPlayer(guid);
         CharacterDatabase.escape_string(player);
-        std::string sqlquery = "SELECT SUBSTRING_INDEX(SUBSTRING_INDEX(data, ' ' , 1325), ' ' , -1) AS `gold` FROM `character` WHERE `name` = '"+player+"';";
+        std::string sqlquery = "SELECT SUBSTRING_INDEX(SUBSTRING_INDEX(data, ' ' , 1325), ' ' , -1) AS `gold` FROM `characters` WHERE `name` = '"+player+"';";
         QueryResult *result = CharacterDatabase.Query(sqlquery.c_str());
         if(result)
         {
@@ -601,7 +606,7 @@ void IRCCmd::Money_Player(_CDATA *CD)
             sprintf(s_newmoney,"%d",newmoney);
             if(addmoney < 0)
             {
-                sLog.outDetail(LANG_CURRENT_MONEY, moneyuser, addmoney, newmoney);
+                sLog.outDetail("USER1: %i, ADD: %i, DIF: %i\\n", moneyuser, addmoney, newmoney);
                 if(newmoney <= 0 )
                 {
                     Send_IRC(ChanOrPM(CD), " \00313["+player+"] : Has Had All Money Taken By: "+CD->USER.c_str()+".", true);
@@ -611,7 +616,7 @@ void IRCCmd::Money_Player(_CDATA *CD)
                         Send_Player(chr, MakeMsg("You Have Been Liquidated By: %s. Total Money Is Now 0.", CD->USER.c_str()));
                     }
                     else
-                        CharacterDatabase.PExecute("UPDATE `character` SET data=concat(substring_index(data,' ',1325-1),' ','%u',' ', right(data,length(data)-length(substring_index(data,' ',1325))-1) ) where guid='%u'",newmoney, guid );
+                        CharacterDatabase.PExecute("UPDATE `characters` SET data=concat(substring_index(data,' ',1325-1),' ','%u',' ', right(data,length(data)-length(substring_index(data,' ',1325))-1) ) where guid='%u'",newmoney, guid );
                 }
                 else
                 {
@@ -622,7 +627,7 @@ void IRCCmd::Money_Player(_CDATA *CD)
                         Send_Player(chr, MakeMsg("You Have Had %s Copper Taken From You By: %s.", _PARAMS[1].c_str(), CD->USER.c_str()));
                     }
                     else
-                        CharacterDatabase.PExecute("UPDATE `character` SET data=concat(substring_index(data,' ',1325-1),' ','%u',' ', right(data,length(data)-length(substring_index(data,' ',1325))-1) ) where guid='%u'",newmoney, guid );
+                        CharacterDatabase.PExecute("UPDATE `characters` SET data=concat(substring_index(data,' ',1325-1),' ','%u',' ', right(data,length(data)-length(substring_index(data,' ',1325))-1) ) where guid='%u'",newmoney, guid );
                 }
             }
             else
@@ -634,7 +639,7 @@ void IRCCmd::Money_Player(_CDATA *CD)
                     Send_Player(chr, MakeMsg("You Have Been Given %s Copper. From: %s.", _PARAMS[1].c_str(), CD->USER.c_str()));
                 }
                 else
-                    CharacterDatabase.PExecute("UPDATE `character` SET data=concat(substring_index(data,' ',1325-1),' ','%u',' ', right(data,length(data)-length(substring_index(data,' ',1325))-1) ) where guid='%u'",newmoney, guid );
+                    CharacterDatabase.PExecute("UPDATE `characters` SET data=concat(substring_index(data,' ',1325-1),' ','%u',' ', right(data,length(data)-length(substring_index(data,' ',1325))-1) ) where guid='%u'",newmoney, guid );
             }
         }
         else
@@ -699,7 +704,7 @@ void IRCCmd::Player_Info(_CDATA *CD)
     std::string pname = _PARAMS[0];
     uint64 guid = objmgr.GetPlayerGUIDByName(pname);
     CharacterDatabase.escape_string(pname);
-    std::string sqlquery = "SELECT `guid`, `account`, `name`, `race`, `class`, `online`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 35), ' ' , -1) AS `level`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 236), ' ' , -1) AS `guildid`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 237), ' ' , -1) AS `guildrank`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 863), ' ' , -1) AS `xp`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 864), ' ' , -1) AS `maxxp`, SUBSTRING_INDEX(SUBSTRING_INDEX(data, ' ' , 1333), ' ' , -1) AS `gold`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 1385), ' ' , -1) AS `hk` FROM `character` WHERE `name` LIKE '" + pname + "';";
+    std::string sqlquery = "SELECT `guid`, `account`, `name`, `race`, `class`, `online`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 35), ' ' , -1) AS `level`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 236), ' ' , -1) AS `guildid`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 237), ' ' , -1) AS `guildrank`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 863), ' ' , -1) AS `xp`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 864), ' ' , -1) AS `maxxp`, SUBSTRING_INDEX(SUBSTRING_INDEX(data, ' ' , 1333), ' ' , -1) AS `gold`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 1385), ' ' , -1) AS `hk` FROM `characters` WHERE `name` LIKE '" + pname + "';";
     QueryResult *result = CharacterDatabase.Query(sqlquery.c_str());
     Player *chr = objmgr.GetPlayer(guid);
     if(result)
@@ -883,14 +888,14 @@ void IRCCmd::Sysmsg_Server(_CDATA *CD)
     std::string* _PARAMS = getArray(CD->PARAMS, CD->PCOUNT);
     if(_PARAMS[0] == "a")
     {
-        std::string str = LANG_SYSTEMMESSAGE + _PARAMS[1];
+        std::string str = "|cffff0000[System Message]:|r" + _PARAMS[1];
         std::string ancmsg = MakeMsg("\00304,08\002\037*[!]*\037SysMsg\037*[!]*\037\002\003 %s \00304,08\002\037*[!]*\037SysMsg\037*[!]*\037\002\003",_PARAMS[1].c_str());
         sWorld.SendWorldText(str.c_str(), NULL);
         Send_IRC(ChanOrPM(CD), ancmsg, true);
     }
     else if (_PARAMS[0] == "n")
     {
-        std::string str = LANG_GLOBAL_NOTIFY + _PARAMS[1];
+        std::string str = "Global notify: " + _PARAMS[1];
         std::string notmsg = MakeMsg("\00304,08\002\037*[!]*\037SysNotice\037*[!]*\037\002\003 %s \00304,08\002\037*[!]*\037SysNotice\037*[!]*\037\002\003",_PARAMS[1].c_str());
         WorldPacket data(SMSG_NOTIFICATION, (str.size()+1));
         data << str;
@@ -908,7 +913,7 @@ void IRCCmd::Tele_Player(_CDATA *CD)
     {
         Send_IRCA(CD->USER, MakeMsg(" \0034[ERROR] : Nice Try, This Player Has A Higher GM Level Than You! [ %i ]", AcctLevel(_PARAMS[0])), true, MSG_NOTICE);
 	    return;
-    }     	
+    }
 	bool DoTeleport = false;
     float pX, pY, pZ, pO = 0;
     uint32 mapid = 0;
@@ -1006,7 +1011,8 @@ void IRCCmd::Tele_Player(_CDATA *CD)
         {
             if(Player* plr2 = GetPlayer(_PARAMS[2]))
             {
-                Player::LoadPositionFromDB(mapid,pX,pY,pZ,pO, plr2->GetGUID());
+                bool in_flight;
+                Player::LoadPositionFromDB(mapid,pX,pY,pZ,pO,in_flight, plr2->GetGUID());
                 rMsg = MakeMsg(" \00313[%s] : Teleported To Player: [%s] By: %s.",
                     _PARAMS[0].c_str(),
                     _PARAMS[2].c_str(),
@@ -1044,130 +1050,4 @@ void IRCCmd::Who_Logged(_CDATA *CD)
         OPS.append(MakeMsg(" \002[GM:%d IRC: %s - WoW: %s]\002 ", (*i)->GMLevel, (*i)->Name.c_str(), (*i)->UName.c_str()));
     }
     Send_IRC(ChanOrPM(CD), OPS, true);
-}
-
-// OK THIS CODE IS COMPLETLY USESLESS AND HAVE ABSOLUTLY NOTHING TODO WITH IRC ANYMORE HEHE
-// But its pretty funny
-// What this does it create a new thread and execute a little "script"
-// it spawns a npc near the player and roots it it greets the player
-// then casts buff spells stamina, intellect, spirit then leaves
-// the purpose of this all was to learn more about the unit classes and grid
-// it works fine with 5 players (so far our own tests) and a few spawns
-// i do not know the stability and functionality with a "loaded" server
-// and multiple buffers in theory each buffer is on its own thread
-// and should be spawn and talk to the correct player regardless where
-// they are in the world
-// ** USE THIS AT YOUR OWN RISK
-#ifdef _WIN32
-DWORD   WINAPI Buff_Script(void* ptr)
-#else
-void *Buff_Script( void *ptr )
-#endif
-{
-    if(sIRC._Max_Script_Inst == MAX_SCRIPT_INST)
-        return 0;
-
-    sIRC._Max_Script_Inst++;
-    std::string pname = (char *)ptr;
-    normalizePlayerName(pname);
-
-    if (Player* plr = ObjectAccessor::Instance().FindPlayerByName(pname.c_str()))
-    {
-        Creature* pCreature = new Creature(plr);
-        if (!pCreature->Create(objmgr.GenerateLowGuid(HIGHGUID_UNIT),
-            plr->GetMapId(),
-            plr->GetPositionX()  - 3,
-            plr->GetPositionY() - 3,
-            plr->GetPositionZ() + 5,
-            plr->GetOrientation() - 2.5,
-            sIRC.ZBUFF_NPC,
-            plr->GetTeam())) { delete pCreature; }
-            else
-			{
-            Delay(500);
-            pCreature->SaveToDB();
-			// To call _LoadGoods(); _LoadQuests(); CreateTrainerSpells();
-            pCreature->LoadFromDB(pCreature->GetGUIDLow(), plr->GetInstanceId());
-            plr->SetMovement(MOVE_ROOT);
-            plr->PlaySound(S_ENTERWORLD ,true);
-            MapManager::Instance().GetMap(pCreature->GetMapId(), pCreature)->Add(pCreature);
-            Delay(500);
-            pCreature->Say("Hello I Am Cybrax, I Am Here To Enhance Your Abilities.", LANG_UNIVERSAL, plr->GetGUID());
-            Delay(2000);
-            pCreature->CastSpell(plr, sSpellStore.LookupEntry( sIRC.ZBUFF_ANIM ), true);
-            Delay(2000);
-            pCreature->CombatStop();
-            if(SpellEntry const *spellInfo = sSpellStore.LookupEntry( sIRC.ZBUFF_SPELL1 ))
-            {
-                for(uint32 i = 0;i<3;i++)
-                {
-                    uint8 eff = spellInfo->Effect[i];
-                    if (eff>=TOTAL_SPELL_EFFECTS)
-                        continue;
-                    if (eff == SPELL_EFFECT_APPLY_AURA || eff == SPELL_EFFECT_APPLY_AREA_AURA || eff == SPELL_EFFECT_PERSISTENT_AREA_AURA)
-                    {
-                        Aura *Aur = new Aura(spellInfo, i, NULL, plr);
-                        plr->AddAura(Aur);
-                    }
-                }
-            }
-            Delay(1000);
-            if(SpellEntry const *spellInfo = sSpellStore.LookupEntry( sIRC.ZBUFF_SPELL2 ))
-            {
-                for(uint32 i = 0;i<3;i++)
-                {
-                    uint8 eff = spellInfo->Effect[i];
-                    if (eff>=TOTAL_SPELL_EFFECTS)
-                        continue;
-                    if (eff == SPELL_EFFECT_APPLY_AURA || eff == SPELL_EFFECT_APPLY_AREA_AURA || eff == SPELL_EFFECT_PERSISTENT_AREA_AURA)
-                    {
-                        Aura *Aur = new Aura(spellInfo, i, NULL, plr);
-                        plr->AddAura(Aur);
-                    }
-                }
-            }
-            Delay(1000);
-            if(SpellEntry const *spellInfo = sSpellStore.LookupEntry( sIRC.ZBUFF_SPELL3 ))
-            {
-                for(uint32 i = 0;i<3;i++)
-                {
-                    uint8 eff = spellInfo->Effect[i];
-                    if (eff>=TOTAL_SPELL_EFFECTS)
-                        continue;
-                    if (eff == SPELL_EFFECT_APPLY_AURA || eff == SPELL_EFFECT_APPLY_AREA_AURA || eff == SPELL_EFFECT_PERSISTENT_AREA_AURA)
-                    {
-                        Aura *Aur = new Aura(spellInfo, i, NULL, plr);
-                        plr->AddAura(Aur);
-                    }
-                }
-            }
-            Delay(2000);
-            pCreature->Say("I Have Done All I Can Do For You, Good Bye!", LANG_UNIVERSAL, plr->GetGUID());
-            Delay(1000);
-            plr->SetMovement(MOVE_UNROOT);
-            plr->PlaySound(S_STEALTH ,true);
-            pCreature->CombatStop();
-            pCreature->DeleteFromDB();
-            pCreature->CleanupsBeforeDelete();
-            ObjectAccessor::Instance().AddObjectToRemoveList(pCreature);
-        }
-    }
-    sIRC._Max_Script_Inst--;
-    return 0;
-}
-void IRCCmd::Zbuff_Player(_CDATA *CD)
-{
-    std::string* _PARAMS = getArray(CD->PARAMS, 1);
-    if (Player* plr = GetPlayer(_PARAMS[0]))
-    {
-        #ifdef _WIN32
-            CreateThread(NULL, 0, Buff_Script, (void*)plr->GetName(), 0, NULL);
-        #else
-            MThread *newthr = new MThread ();
-            pthread_create(&newthr->tid, NULL, &Buff_Script, (void*)plr->GetName());
-        #endif
-        sIRC.Send_IRC_Channel(ChanOrPM(CD), MakeMsg(" \00313[%s] : Has Been Buffed!",_PARAMS[0].c_str()), true);
-    }
-    else
-        Send_IRCA(CD->USER, " \0034[ERROR] : Player Not Online!", true, MSG_NOTICE);
 }

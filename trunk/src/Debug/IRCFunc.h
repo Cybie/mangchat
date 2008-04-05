@@ -52,8 +52,11 @@ std::string IRCcol2WoW(std::string msg)
     std::size_t pos;
     char IRCCol[16][4] = { "\x3\x30", "\x3\x31", "\x3\x32", "\x3\x33", "\x3\x34", "\x3\x35", "\x3\x36", "\x3\x37", "\x3\x38", "\x3\x39", "\x3\x31\x30", "\x3\x31\x31", "\x3\x31\x32", "\x3\x31\x33", "\x3\x31\x34", "\x3\x31\x35"};
     char IRCCol2[10][4] = { "\x3\x30\x30", "\x3\x30\x31", "\x3\x30\x32", "\x3\x30\x33", "\x3\x30\x34", "\x3\x30\x35", "\x3\x30\x36", "\x3\x30\x37", "\x3\x30\x38", "\x3\x30\x39"};
-    char WoWcol[16][12] = { "|cffffffff", "|cff000000", "|cff00007f", "|cff009300", "|cffff0000", "|cff7f0000", "|cff9c009c", "|cfffc9300", "|cffffff00", "|cff00fc00", "|cff009393", "|cff00ffff", "|cff0000fc", "|cffff00ff", "|cff7f7f7f", "|cffd2d2d2"};
-    for (int i=15; i>=0; i--)
+
+	char WoWcol[16][12] = { "|cffffffff", "|cff000000", "|cff00007f", "|cff009300", "|cffff0000", "|cff7f0000", "|cff9c009c", "|cfffc9300", "|cffffff00", "|cff00fc00", "|cff009393", "|cff00ffff", "|cff0000fc", "|cffff00ff", "|cff7f7f7f", "|cffd2d2d2"};
+
+
+	for (int i=15; i>=0; i--)
     {
         if (i<10)
         {
@@ -75,17 +78,30 @@ std::string IRCcol2WoW(std::string msg)
             }
         }
     }
+	
+	// Remove Bold, Reverse, Underline from IRC This one 
+	char Checker[3][3] = {"\x2","\x16","\x1F"}; // This is the Hex part not Dec. In Decimal its (2,22,31)
+	for(int I=0; I < 3; I++)
+	{
+		while ((pos = msg.find(Checker[I])) != std::string::npos)
+      {	
+	 	msg.replace(pos, 1, "");
+      }
+
+	}
+    // Finished Removing
 
     while ((pos = msg.find("\x3")) != std::string::npos)
     {
-        msg.replace(pos, 1, "|r");
+		msg.replace(pos, 1, "|r");
     }
     while ((pos = msg.find("\xF")) != std::string::npos)
     {
         msg.replace(pos, 1, "|r");
     }
 
-    return msg;
+	// sLog.outString("%s",msg2);
+	return msg;
 }
 
 std::string MakeLower(std::string Channel)
