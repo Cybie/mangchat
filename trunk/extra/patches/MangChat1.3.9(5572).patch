@@ -384,7 +384,7 @@ Index: src/game/mangchat/IRCFunc.h
 +{
 +    std::size_t pos;
 +    char IRCCol[9][4] = { "\xF", "\xF", "\x3\x31\x34", "\x3\x30\x33", "\x3\x31\x32", "\x3\x30\x36", "\x3\x30\x37", "\x3\x30\x34", "\x3\x30\x37"};
-+    char WoWCol[9][12] = { "|r", "|cffffffff", "|cff9d9d9d", "|cff1eff00", "|cff0070dd", "|cffa335ee", "|cffff8000", "|cffe6cc80", "cffffd000"};
++    char WoWCol[9][12] = { "|r", "|cffffffff", "|cff9d9d9d", "|cff1eff00", "|cff0070dd", "|cffa335ee", "|cffff8000", "|cffe6cc80", "|cffffd000"};
 +    for (int i=0; i<=8; i++)
 +    {
 +        while ((pos = msg.find(WoWCol[i])) != std::string::npos)
