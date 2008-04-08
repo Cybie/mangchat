@@ -283,7 +283,7 @@ void IRCClient::Send_IRC_Channels(std::string sMsg)
 void IRCClient::Send_WoW_IRC(Player *plr, std::string Channel, std::string Msg)
 {
     // Check if the channel exist in our configuration
-    if(Channel_Valid(Channel))
+    if(Channel_Valid(Channel) && Msg.substr(0, 1) != ".")
         Send_IRC_Channel(GetIRCChannel(Channel), MakeMsgP(WOW_IRC, Msg, plr));
 }
 
