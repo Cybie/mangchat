@@ -2,7 +2,13 @@
 #include "IRCClient.h"
 #include "Database/DatabaseEnv.h"
 #include "../ObjectMgr.h"
-// Constructor
+std::string IRCCmd::MakeUpper(std::string Channel)
+{
+    std::string tmpchan = Channel;
+    std::transform(tmpchan.begin(), tmpchan.end(), tmpchan.begin(), towupper);
+    return tmpchan;
+}
+	// Constructor
 IRCCmd::IRCCmd(){}
 // Destructor
 IRCCmd::~IRCCmd(){}
@@ -33,7 +39,7 @@ int IRCCmd::ParamsValid(_CDATA *CD, int pCnt, int rLev)
 bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
 {
     // If the first line of our chat is the command prefix we have a command
-    if(CHAT.substr(0, 1) == sIRC._cmd_prefx && CHAT.size() > 1)
+    if(CHAT.substr(0, 1) == sIRC._cmd_prefx && CHAT.size() > 1 )
     {
         _CDATA CDATA;
         bool cValid    = false;
@@ -43,9 +49,9 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
         CDATA.USER      = USER;
         CDATA.FROM      = FROM;
         CDATA.PCOUNT    = 0;
-        CDATA.CMD       = _PARAMS[0].substr(1, _PARAMS[0].size() - 1);
+        CDATA.CMD       = MakeUpper(_PARAMS[0].substr(1, _PARAMS[0].size() - 1));
         CDATA.PARAMS    = _PARAMS[1];   
-        if(CDATA.CMD == "login")
+        if(CDATA.CMD == "LOGIN")
         {
             if(FROM == sIRC._Nick)
             {             
@@ -60,7 +66,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
                 dontlog = false;
 			cValid = true;
         }
-        else if(CDATA.CMD == "logout")
+        else if(CDATA.CMD == "LOGOUT")
         {
             if(FROM == sIRC._Nick)
             {
@@ -70,7 +76,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
                 sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Please Send A PM To Logout!", true, MSG_NOTICE);
             cValid = true;
         }
-        else if(CDATA.CMD == "acct")
+        else if(CDATA.CMD == "ACCT")
         {
             switch(ParamsValid(&CDATA, 2, sIRC.CACCT))
             {
@@ -86,7 +92,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             }
             cValid = true;
         }
-		else if(CDATA.CMD == "fun")
+		else if(CDATA.CMD == "FUN")
         {
             switch(ParamsValid(&CDATA, 2, sIRC.CFUN))
             {
@@ -102,24 +108,24 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             }
             cValid = true;
         }
-        else if(CDATA.CMD == "help")
+        else if(CDATA.CMD == "HELP")
         {
             CDATA.PCOUNT = 2;
             Help_IRC(&CDATA);
             cValid = true;
         }
-        else if(CDATA.CMD == "inchan")
+        else if(CDATA.CMD == "INCHAN")
         {
             CDATA.PCOUNT = 1;
             Inchan_Server(&CDATA);
             cValid = true;
         }
-        else if(CDATA.CMD == "info")
+        else if(CDATA.CMD == "INFO")
         {
             Info_Server(&CDATA);
             cValid = true;
         }
-        else if(CDATA.CMD == "item")
+        else if(CDATA.CMD == "ITEM")
         {
             CDATA.PCOUNT = 3;
             switch(ParamsValid(&CDATA, 1, sIRC.CITEM))
@@ -136,7 +142,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             }
             cValid = true;
         }
-        else if(CDATA.CMD == "jail")
+        else if(CDATA.CMD == "JAIL")
         {
             CDATA.PCOUNT = 3;
             switch(ParamsValid(&CDATA, 1, sIRC.CJAIL))
@@ -153,7 +159,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             }
             cValid = true;
         }
-        else if(CDATA.CMD == "kick")
+        else if(CDATA.CMD == "KICK")
         {
             CDATA.PCOUNT = 2;
             switch(ParamsValid(&CDATA, 1, sIRC.CKICK))
@@ -170,7 +176,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             }
             cValid = true;
         }
-        else if(CDATA.CMD == "kill")
+        else if(CDATA.CMD == "KILL")
         {
             CDATA.PCOUNT = 2;
             switch(ParamsValid(&CDATA, 1, sIRC._KILL))
@@ -187,7 +193,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             }
             cValid = true;
         }
-        else if(CDATA.CMD == "level")
+        else if(CDATA.CMD == "LEVEL")
         {
             CDATA.PCOUNT = 2;
             switch(ParamsValid(&CDATA, 1, sIRC.CLEVEL))
@@ -204,7 +210,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             }
             cValid = true;
         }
-        else if(CDATA.CMD == "money")
+        else if(CDATA.CMD == "MONEY")
         {
             CDATA.PCOUNT = 2;
             switch(ParamsValid(&CDATA, 1, sIRC.CMONEY))
@@ -221,7 +227,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             }
             cValid = true;
         }
-        else if(CDATA.CMD == "mute")
+        else if(CDATA.CMD == "MUTE")
         {
             switch(ParamsValid(&CDATA, 2, sIRC.CMUTE))
             {
@@ -237,13 +243,13 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             }
             cValid = true;
         }
-        else if(CDATA.CMD == "online")
+        else if(CDATA.CMD == "ONLINE")
         {
             CDATA.PCOUNT = 3;
             Online_Players(&CDATA);
             cValid = true;
         }
-        else if(CDATA.CMD == "player")
+        else if(CDATA.CMD == "PLAYER")
         {
             switch(ParamsValid(&CDATA, 1, sIRC.CPLAYER))
             {
@@ -259,7 +265,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             }
             cValid = true;
         }
-        else if(CDATA.CMD == "pm")
+        else if(CDATA.CMD == "PM")
         {
             switch(ParamsValid(&CDATA, 2, sIRC.CPM))
             {
@@ -275,7 +281,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             }
             cValid = true;
         }
-        else if(CDATA.CMD == "restart")
+        else if(CDATA.CMD == "RESTART")
         {
             switch(ParamsValid(&CDATA, 0, sIRC.CRESTART))
             {
@@ -289,7 +295,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             }
             cValid = true;
         }
-        else if(CDATA.CMD == "revive")
+        else if(CDATA.CMD == "REVIVE")
         {
             CDATA.PCOUNT = 2;
             switch(ParamsValid(&CDATA, 1, sIRC.CREVIVE))
@@ -306,7 +312,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             }
             cValid = true;
         }
-        else if(CDATA.CMD == "saveall")
+        else if(CDATA.CMD == "SAVEALL")
         {
             switch(ParamsValid(&CDATA, 0, sIRC.CSAVEALL))
             {
@@ -319,7 +325,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             }
             cValid = true;
         }
-        else if(CDATA.CMD == "shutdown")
+        else if(CDATA.CMD == "SHUTDOWN")
         {
             switch(ParamsValid(&CDATA, 1, sIRC.CSHUTDOWN))
             {
@@ -335,7 +341,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             }
             cValid = true;
         }
-        else if(CDATA.CMD == "spell")
+        else if(CDATA.CMD == "SPELL")
         {
             switch(ParamsValid(&CDATA, 2, sIRC.CSPELL))
             {
@@ -351,7 +357,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             }
             cValid = true;
         }
-        else if(CDATA.CMD == "sysmsg")
+        else if(CDATA.CMD == "SYSMSG")
         {
             CDATA.PCOUNT = 2;
             switch(ParamsValid(&CDATA, 1, sIRC.CSYSMSG))
@@ -360,7 +366,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
                     Sysmsg_Server(&CDATA);
                     break;
                 case E_SIZE:
-                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"sysmsg <a/n> <Message> )", true, MSG_NOTICE);
+                    sIRC.Send_IRC_Channel(USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"sysmsg <a/e/n> <Message> )", true, MSG_NOTICE);
                     break;
                 case E_AUTH:
                     AuthValid = false;
@@ -368,7 +374,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             }
             cValid = true;
         }
-        else if(CDATA.CMD == "tele")
+        else if(CDATA.CMD == "TELE")
         {
             switch(ParamsValid(&CDATA, 2, sIRC.CTELE))
             {
@@ -384,7 +390,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             }
             cValid = true;
         }
-        else if(CDATA.CMD == "who")
+        else if(CDATA.CMD == "WHO")
         {
             switch(ParamsValid(&CDATA, 0, sIRC.CWHO))
             {
@@ -397,7 +403,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             }
             cValid = true;
         }
-        else if(CDATA.CMD == "startgame" && sIRC.games == 1)
+        else if(CDATA.CMD == "STARTGAME" && sIRC.games == 1)
         {
             //if(!sIRC.Script_Lock[MCS_Poker_Game])
             //{
@@ -407,7 +413,7 @@ bool IRCCmd::IsValid(std::string USER, std::string FROM, std::string CHAT)
             //}
             cValid = true;
         }
-        else if(CDATA.CMD == "joingame" && sIRC.games == 1)
+        else if(CDATA.CMD == "JOINGAME" && sIRC.games == 1)
         {
             for(std::list<gPlayer*>::iterator i=sIRC.GamePlayers.begin(); i!=sIRC.GamePlayers.end();i++)
                 if((*i)->name == CDATA.USER)

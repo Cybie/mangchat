@@ -14,15 +14,20 @@ std::string GetUser(std::string szU)
 std::string Delink(std::string msg)
 {
     std::size_t pos;
-    while ((pos = msg.find("|Hitem")) != std::string::npos)
+    while((pos = msg.find("|Hitem")) != std::string::npos)
     {
-        msg.replace(pos, msg.find("|h") - pos + 2, "\x2");
-        msg.replace(msg.find("|h"), 2, "\x2");
+        std::size_t find1 = msg.find("|h", pos);
+		std::size_t find2 = msg.find("|h", find1 + 2);
+        msg.replace(pos, find1 - pos + 2, "\x2");
+        msg.replace(msg.find("|h", pos), 2, "\x2");
     }
-    while ((pos = msg.find("|Henchant")) != std::string::npos)
+    while((pos = msg.find("|Henchant")) != std::string::npos)
     {
-        msg.replace(pos, msg.find("|h") - pos + 2, "\x2");
-        msg.replace(msg.find("|h"), 2, "\x2");
+        std::size_t find1 = msg.find("|h", pos);
+        std::size_t find2 = msg.find("|h", find1 + 2);
+        msg.replace(pos, find1 - pos + 2, "\x2");
+        msg.replace(msg.find("|h", pos), 2, "\x2");
+		//msg.replace(find2, 2, "\x2");
     }
     return msg;
 }
@@ -92,13 +97,6 @@ std::string MakeLower(std::string Channel)
 {
     std::string tmpchan = Channel;
     std::transform(tmpchan.begin(), tmpchan.end(), tmpchan.begin(), towlower);
-    return tmpchan;
-}
-
-std::string MakeUpper(std::string Channel)
-{
-    std::string tmpchan = Channel;
-    std::transform(tmpchan.begin(), tmpchan.end(), tmpchan.begin(), towupper);
     return tmpchan;
 }
 
