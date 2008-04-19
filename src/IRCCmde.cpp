@@ -464,7 +464,7 @@ void IRCCmd::Kill_Player(_CDATA *CD)
     {
 		if(plr->isAlive())
         {
-            plr->DealDamage(plr, plr->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_NORMAL, NULL, false);
+            plr->DealDamage(plr, plr->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
             plr->SaveToDB();
             if(_PARAMS[1] == "")
                 _PARAMS[1] = "No Reason Given.";
