@@ -125,6 +125,8 @@ void IRCClient::Handle_IRC(std::string sData)
                 std::string CHAN = sData.substr(p2 + 1, p3 - p2 - 1);
                 std::string WHO = sData.substr(p3 + 1, p4 - p3 - 1);
                 std::string BY = sData.substr(p4 + 1, sData.size() - p4 - 1);
+                
+                
                 // if the one kicked was us
                 if(WHO == sIRC._Nick)
                 {
@@ -151,14 +153,14 @@ void IRCClient::Handle_IRC(std::string sData)
                 size_t p = sData.find(" ", p2 + 1);
                 std::string FROM = sData.substr(p2 + 1, p - p2 - 1);
                 std::string CHAT = sData.substr(p + 2, sData.size() - p - 3);
-				
+
                 #ifdef USE_UTF8
                  std::string chat2 = CHAT;
                  if(ConvertUTF8("UTF-8", "char", chat2.c_str(), chat2))
                    CHAT = chat2;
                 #endif
 
-                 // if this is our username it means we recieved a PM
+                // if this is our username it means we recieved a PM
                 if(FROM == sIRC._Nick)
                 {
                     if(CHAT.find("\001VERSION\001") < CHAT.size())
@@ -290,7 +292,7 @@ void IRCClient::Send_IRC_Channels(std::string sMsg)
 void IRCClient::Send_WoW_IRC(Player *plr, std::string Channel, std::string Msg)
 {
     // Check if the channel exist in our configuration
-    if(Channel_Valid(Channel))
+    if(Channel_Valid(Channel) && Msg.substr(0, 1) != ".")
         Send_IRC_Channel(GetIRCChannel(Channel), MakeMsgP(WOW_IRC, Msg, plr));
 }
 
@@ -323,13 +325,7 @@ void IRCClient::Send_WoW_Channel(const char *channel, std::string chat)
 {
     if(!(strlen(channel) > 0))
         return;
-/*
-    #ifdef USE_UTF8
-        std::string chat2 = chat;
-        if(ConvertUTF8("UTF-8", "char", chat2.c_str(), chat2))
-            chat = chat2;
-    #endif
-*/
+
     HashMapHolder<Player>::MapType& m = ObjectAccessor::Instance().GetPlayers();
     for(HashMapHolder<Player>::MapType::iterator itr = m.begin(); itr != m.end(); ++itr)
     {
@@ -416,7 +412,6 @@ bool IRCClient::ConvertUTF8(const char* tocode, const char* fromcode, const char
 {
     // extern void error();
     iconv_t cd = iconv_open(tocode, fromcode);
-	//    iconv_t cd = iconv_open("char", "UTF-8");
     if (cd != (iconv_t) -1)
     {
         size_t size_orig = strlen(chat);
