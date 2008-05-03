@@ -43,7 +43,6 @@ void IRCClient::run()
 	setlocale(LC_CTYPE, "en_ca.UTF-8");
     #endif
 
-
     // before we begin we wait a few 
     // mangos is still starting up and max screw
     // up the console text
@@ -56,7 +55,6 @@ void IRCClient::run()
         "***** MangChat: Version 1.3.0.0 *******");
     // Initialize connection count 0
     int cCount = 0;
-
     // Clean Up MySQL Tables
     sLog.outString("*** MangChat: Cleaning Up Inchan Table*");
     WorldDatabase.PExecute("DELETE FROM `IRC_Inchan`");

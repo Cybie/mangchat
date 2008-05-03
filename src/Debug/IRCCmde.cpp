@@ -36,7 +36,7 @@ void IRCCmd::Handle_Login(_CDATA *CD)
                 _client *NewClient = new _client();
 
                 NewClient->Name     = CD->USER;
-                NewClient->UName    = _PARAMS[0];
+                NewClient->UName    = MakeUpper(_PARAMS[0]);
                 NewClient->GMLevel  = fields[0].GetInt16();
 
                 _CLIENTS.push_back(NewClient);
@@ -262,13 +262,13 @@ void IRCCmd::Item_Player(_CDATA *CD)
 {
     std::string* _PARAMS = getArray(CD->PARAMS, 3);
 
-    
     normalizePlayerName(_PARAMS[0]);
     Player *chr = GetPlayer(_PARAMS[0].c_str());
-    if(_PARAMS[1] == "add")
+	if(_PARAMS[1] == "add")
     {
         std::string s_param  = _PARAMS[2];
-        char *args = (char*)s_param.c_str();
+        
+		char *args = (char*)s_param.c_str();
         uint32 itemId = 0;
         if(args[0]=='[')
         {
@@ -311,102 +311,70 @@ void IRCCmd::Item_Player(_CDATA *CD)
             }
             itemId = atol(cId);
         }
-        char* ccount = strtok(NULL, " ");
-        int32 count = 1;
-        if (ccount) { count = atol(ccount); }
-        if (count < 1) { count = 1; }
-        Player* plTarget = chr;
-        if ( !plTarget )
-        {
+            char* ccount = strtok(NULL, " ");
+            int32 count = 1;
+            if (ccount) { count = atol(ccount); }
+            Player* plTarget = chr;
+        if(!plTarget)
+	    {
             Send_IRCA(CD->USER, " \0034[ERROR] : "+_PARAMS[0]+" Is Not Online!", true, MSG_NOTICE);
             return;
         }
-        sLog.outDetail("Command : Additem, itemId = %i, amount = %i", itemId, count);
         ItemPrototype const *pProto = objmgr.GetItemPrototype(itemId);
-        if(!pProto)
+        //Subtract
+        if (count < 0)
         {
-            Send_IRCA(CD->USER, " \0034[ERROR] : Invalid Item!", true, MSG_NOTICE);
-            return;
+            plTarget->DestroyItemCount(itemId, -count, true, false);
+            char itemid2[255];
+            sprintf(itemid2,"%d",itemId);        
+		    std::string itake = " \00313["+ _PARAMS[0] +"] : Has Had Item " +itemid2+ " Taken From Them!";
+            Send_IRC(ChanOrPM(CD), itake, true);
+	    	return;
         }
-        uint32 countForStore = count;
-        // item used in local operations and in add item notifier
-        Item* item = NULL;
-        // if possible create full stacks for better performance
-        while(countForStore >= pProto->Stackable)
-        {
-            ItemPosCountVec dest;
-            uint8 msg = plTarget->CanStoreNewItem( NULL_BAG, NULL_SLOT, dest, itemId, pProto->Stackable, false );
-            if( msg == EQUIP_ERR_OK )
-            {
-                item = plTarget->StoreNewItem( dest, itemId, true, Item::GenerateItemRandomPropertyId(itemId));
-                countForStore-= pProto->Stackable;
-            }
-            else
-                break;
-        }
-        // create remaining items
-        if(countForStore > 0 && countForStore < pProto->Stackable)
-        {
-            ItemPosCountVec dest;
-            uint8 msg = plTarget->CanStoreNewItem( NULL_BAG, NULL_SLOT, dest, itemId, countForStore, false );
-            // if can add all countForStore items
-            if( msg == EQUIP_ERR_OK )
-            {
-                item = plTarget->StoreNewItem( dest, itemId, true, Item::GenerateItemRandomPropertyId(itemId));
-                countForStore = 0;
-            }
-        }
-        // ok search place for add only part from countForStore items in not full stacks
-        while(countForStore > 0)
-        {
-            // find not full stack (last possable place for times after prev. checks)
-            ItemPosCountVec dest;
-            uint16 dest2;
-            uint8 msg = plTarget->CanStoreNewItem( NULL_BAG, NULL_SLOT, dest, itemId, 1, false );
-            if( msg == EQUIP_ERR_OK )                       // found
-            {
-                // we can fill this stack to max stack size
-                Item* itemStack = plTarget->GetItemByPos(dest2);
-                if(itemStack)
-                {
-                    uint32 countForStack = pProto->Stackable - itemStack->GetCount();
-                    // recheck with real item amount
-                    uint8 msg = plTarget->CanStoreNewItem( itemStack->GetBagSlot(), itemStack->GetSlot(), dest, itemId, countForStack, false );
-                    if( msg == EQUIP_ERR_OK )
-                    {
-                        item = plTarget->StoreNewItem( dest, itemId, true, Item::GenerateItemRandomPropertyId(itemId));
-                        countForStore-= countForStack;
-                    }
-                    else
-                        break;
-                }
-                else
-                    break;
-            }
-            else
-                break;
-        }
-        if(uint32(count) > countForStore && item)
-        {
-            plTarget->SendNewItem(item,count - countForStore,true,false);
-            QueryResult *result = WorldDatabase.PQuery("SELECT name FROM item_template WHERE entry = %d", itemId);
-            char* dbitemname = NULL;
-            if (result)
-            {
-                dbitemname = (char*)result->Fetch()->GetString();
-            }
-            std::string iinfo = " \00313[" + _PARAMS[0] + "] : Has Been Given Item "+dbitemname+". From: "+CD->USER.c_str()+".";
-            Send_IRC(ChanOrPM(CD), iinfo, true);
-            delete result;
-        }
-        if(countForStore > 0)
+        //Adding items
+        uint32 noSpaceForCount = 0;
+
+        // check space and find places
+        ItemPosCountVec dest;
+        uint8 msg = plTarget->CanStoreNewItem( NULL_BAG, NULL_SLOT, dest, itemId, count, &noSpaceForCount );
+        if( msg == EQUIP_ERR_INVENTORY_FULL )                   // convert to possibel store amount
+            count -= noSpaceForCount;
+        else if( msg != EQUIP_ERR_OK )                          // other error, can't add
         {
             char s_countForStore[255];
-            sprintf(s_countForStore,"%d",countForStore);
-            std::string ierror = " \00313["+ _PARAMS[0] +"] : Could Not Create All Items! " +s_countForStore+ " Item(s) Were Not Created!";
+            sprintf(s_countForStore,"%d",count);
+		    std::string ierror = " \00313["+ _PARAMS[0] +"] : Could Not Create All Items! " +s_countForStore+ " Item(s) Were Not Created!";
             Send_IRC(ChanOrPM(CD), ierror, true);
+            return;
         }
-    }
+        Item* item = plTarget->StoreNewItem( dest, itemId, true, Item::GenerateItemRandomPropertyId(itemId));
+        if(count > 0 && item)
+        {
+                plTarget->SendNewItem(item,count,true,false);
+                QueryResult *result = WorldDatabase.PQuery("SELECT name FROM item_template WHERE entry = %d", itemId);
+                char* dbitemname = NULL;
+                if (result)
+                {
+                    dbitemname = (char*)result->Fetch()->GetString();
+                }
+                std::string iinfo = " \00313[" + _PARAMS[0] + "] : Has Been Given Item "+dbitemname+". From: "+CD->USER.c_str()+".";
+                Send_IRC(ChanOrPM(CD), iinfo, true);
+                delete result;
+        }
+        if(noSpaceForCount > 0)
+	    {
+            char s_countForStore[255];
+            sprintf(s_countForStore,"%d",noSpaceForCount);
+		    std::string ierror = " \00313["+ _PARAMS[0] +"] : Could Not Create All Items! " +s_countForStore+ " Item(s) Were Not Created!";
+            Send_IRC(ChanOrPM(CD), ierror, true);
+		    return;
+	    }
+	}
+	else
+	{
+	    Send_IRCA(CD->USER, " \0034[ERROR] : Syntax Error! ( "+sIRC._cmd_prefx+"item <Player> <add> <ItemID> <Amount> )", true, MSG_NOTICE);
+	    return;
+	}
 }
 
 void IRCCmd::Jail_Player(_CDATA *CD)
@@ -496,7 +464,7 @@ void IRCCmd::Kill_Player(_CDATA *CD)
     {
 		if(plr->isAlive())
         {
-            plr->DealDamage(plr, plr->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_NORMAL, NULL, false);
+            plr->DealDamage(plr, plr->GetHealth(), NULL, DIRECT_DAMAGE, SPELL_SCHOOL_MASK_NORMAL, NULL, false);
             plr->SaveToDB();
             if(_PARAMS[1] == "")
                 _PARAMS[1] = "No Reason Given.";
@@ -561,7 +529,7 @@ void IRCCmd::Level_Player(_CDATA *CD)
             Player::SaveValuesArrayInDB(values,guid);
         }
     }
-    Send_IRC(ChanOrPM(CD), " \00313[" + _PARAMS[0]+ "] : Has Been Leveled To " + _PARAMS[1] + ". By: "+CD->USER+".", true);
+    //Send_IRC(ChanOrPM(CD), " \00313[" + _PARAMS[0]+ "] : Has Been Leveled To " + _PARAMS[1] + ". By: "+CD->USER+".", true);
 }
 
 void IRCCmd::Money_Player(_CDATA *CD)
@@ -706,8 +674,15 @@ void IRCCmd::Player_Info(_CDATA *CD)
     CharacterDatabase.escape_string(pname);
     std::string sqlquery = "SELECT `guid`, `account`, `name`, `race`, `class`, `online`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 35), ' ' , -1) AS `level`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 236), ' ' , -1) AS `guildid`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 237), ' ' , -1) AS `guildrank`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 863), ' ' , -1) AS `xp`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 864), ' ' , -1) AS `maxxp`, SUBSTRING_INDEX(SUBSTRING_INDEX(data, ' ' , 1333), ' ' , -1) AS `gold`, SUBSTRING_INDEX(SUBSTRING_INDEX(`data`, ' ' , 1385), ' ' , -1) AS `hk` FROM `characters` WHERE `name` LIKE '" + pname + "';";
     QueryResult *result = CharacterDatabase.Query(sqlquery.c_str());
-    Player *chr = objmgr.GetPlayer(guid);
-    if(result)
+	uint32 latency = 0;
+	Player *chr = objmgr.GetPlayer(guid);
+	if(chr) 
+	{
+		latency = chr->GetSession()->GetLatency();
+	}
+    char templatency [100];
+	sprintf(templatency, "%ums", latency);
+	if(result)
     {
         Field *fields = result->Fetch();
         std::string pguid = fields[0].GetCppString();
@@ -763,7 +738,7 @@ void IRCCmd::Player_Info(_CDATA *CD)
                 }
             }
         }
-        std::string pinfo  = "\x2 About Player:\x3\x31\x30 " +pname+ "\xF |\x2 GM Level:\x3\x31\x30 " +pgmlvl+ "\xF |\x2 AcctID:\x3\x31\x30 " +pacct+ "\xF |\x2 CharID:\x3\x31\x30 " +pguid+ " \xF |\x2 Guild Info:\x2\x3\x31\x30" +guildinfo;
+        std::string pinfo  = "\x2 About Player:\x3\x31\x30 " +pname+ "\xF |\x2 GM Level:\x3\x31\x30 " +pgmlvl+ "\xF |\x2 AcctID:\x3\x31\x30 " +pacct+ "\xF |\x2 CharID:\x3\x31\x30 " +pguid+ " \xF |\x2 Guild Info:\x2\x3\x31\x30" +guildinfo+" \xF |\x2 Latency:\x2\x3\x31\x30 "+templatency;
         std::string pinfo2 = "\x2 Race:\x2\x3\x31\x30 " + (std::string)prace->name[sWorld.GetDBClang()] + "\xF |\x2 Class:\x2\x3\x31\x30 " + (std::string)pclass->name[sWorld.GetDBClang()] + "\xF |\x2 Level:\x2\x3\x31\x30 " + plevel + "\xF |\x2 Money:\x2 " + tempgold + "\xF |\x2 Status:\x2 " + ponline;
         //        pinfo3 = " :" + " \x2Honor Kills:\x2\x3\x31\x30 " + hk;
         Send_IRC(ChanOrPM(CD),pinfo ,true);
@@ -889,14 +864,28 @@ void IRCCmd::Sysmsg_Server(_CDATA *CD)
     if(_PARAMS[0] == "a")
     {
         std::string str = "|cffff0000[System Message]:|r" + _PARAMS[1];
-        std::string ancmsg = MakeMsg("\00304,08\002\037*[!]*\037SysMsg\037*[!]*\037\002\003 %s \00304,08\002\037*[!]*\037SysMsg\037*[!]*\037\002\003",_PARAMS[1].c_str());
+        std::string ancmsg = MakeMsg("\00304,08\037/!\\\037\017\00304 System Message \00304,08\037/!\\\037\017 %s",_PARAMS[1].c_str());
         sWorld.SendWorldText(str.c_str(), NULL);
         Send_IRC(ChanOrPM(CD), ancmsg, true);
+    }
+    else if (_PARAMS[0] == "e")
+    {
+        std::string str = "|cffff0000[Server Event]:|r " + _PARAMS[1];
+		std::string notstr = "[Server Event]: " + _PARAMS[1];
+		std::string notmsg = MakeMsg("\00304,08\037/!\\\037\017\00304 Server Event \00304,08\037/!\\\037\017 %s",_PARAMS[1].c_str());
+        WorldPacket data(SMSG_NOTIFICATION, (notstr.size()+1));
+		data << notstr;
+        WorldPacket data2(SMSG_PLAY_SOUND,32);
+        data2 << (uint32)1400;
+        sWorld.SendGlobalMessage(&data2);
+		sWorld.SendGlobalMessage(&data);
+		sWorld.SendWorldText(str.c_str(), NULL);
+        Send_IRC(ChanOrPM(CD), notmsg, true);
     }
     else if (_PARAMS[0] == "n")
     {
         std::string str = "Global notify: " + _PARAMS[1];
-        std::string notmsg = MakeMsg("\00304,08\002\037*[!]*\037SysNotice\037*[!]*\037\002\003 %s \00304,08\002\037*[!]*\037SysNotice\037*[!]*\037\002\003",_PARAMS[1].c_str());
+		std::string notmsg = MakeMsg("\00304,08\037/!\\\037\017\00304 Global Notify \00304,08\037/!\\\037\017 %s",_PARAMS[1].c_str());
         WorldPacket data(SMSG_NOTIFICATION, (str.size()+1));
         data << str;
         sWorld.SendGlobalMessage(&data);

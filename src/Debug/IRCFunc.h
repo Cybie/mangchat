@@ -14,15 +14,20 @@ std::string GetUser(std::string szU)
 std::string Delink(std::string msg)
 {
     std::size_t pos;
-    while ((pos = msg.find("|Hitem")) != std::string::npos)
+    while((pos = msg.find("|Hitem")) != std::string::npos)
     {
-        msg.replace(pos, msg.find("|h") - pos + 2, "\x2");
-        msg.replace(msg.find("|h"), 2, "\x2");
+        std::size_t find1 = msg.find("|h", pos);
+		std::size_t find2 = msg.find("|h", find1 + 2);
+        msg.replace(pos, find1 - pos + 2, "\x2");
+        msg.replace(msg.find("|h", pos), 2, "\x2");
     }
-    while ((pos = msg.find("|Henchant")) != std::string::npos)
+    while((pos = msg.find("|Henchant")) != std::string::npos)
     {
-        msg.replace(pos, msg.find("|h") - pos + 2, "\x2");
-        msg.replace(msg.find("|h"), 2, "\x2");
+        std::size_t find1 = msg.find("|h", pos);
+        std::size_t find2 = msg.find("|h", find1 + 2);
+        msg.replace(pos, find1 - pos + 2, "\x2");
+        msg.replace(msg.find("|h", pos), 2, "\x2");
+		//msg.replace(find2, 2, "\x2");
     }
     return msg;
 }
@@ -32,7 +37,7 @@ std::string WoWcol2IRC(std::string msg)
 {
     std::size_t pos;
     char IRCCol[9][4] = { "\xF", "\xF", "\x3\x31\x34", "\x3\x30\x33", "\x3\x31\x32", "\x3\x30\x36", "\x3\x30\x37", "\x3\x30\x34", "\x3\x30\x37"};
-    char WoWCol[9][12] = { "|r", "|cffffffff", "|cff9d9d9d", "|cff1eff00", "|cff0070dd", "|cffa335ee", "|cffff8000", "|cffe6cc80", "cffffd000"};
+    char WoWCol[9][12] = { "|r", "|cffffffff", "|cff9d9d9d", "|cff1eff00", "|cff0070dd", "|cffa335ee", "|cffff8000", "|cffe6cc80", "|cffffd000"};
     for (int i=0; i<=8; i++)
     {
         while ((pos = msg.find(WoWCol[i])) != std::string::npos)
@@ -52,11 +57,8 @@ std::string IRCcol2WoW(std::string msg)
     std::size_t pos;
     char IRCCol[16][4] = { "\x3\x30", "\x3\x31", "\x3\x32", "\x3\x33", "\x3\x34", "\x3\x35", "\x3\x36", "\x3\x37", "\x3\x38", "\x3\x39", "\x3\x31\x30", "\x3\x31\x31", "\x3\x31\x32", "\x3\x31\x33", "\x3\x31\x34", "\x3\x31\x35"};
     char IRCCol2[10][4] = { "\x3\x30\x30", "\x3\x30\x31", "\x3\x30\x32", "\x3\x30\x33", "\x3\x30\x34", "\x3\x30\x35", "\x3\x30\x36", "\x3\x30\x37", "\x3\x30\x38", "\x3\x30\x39"};
-
-	char WoWcol[16][12] = { "|cffffffff", "|cff000000", "|cff00007f", "|cff009300", "|cffff0000", "|cff7f0000", "|cff9c009c", "|cfffc9300", "|cffffff00", "|cff00fc00", "|cff009393", "|cff00ffff", "|cff0000fc", "|cffff00ff", "|cff7f7f7f", "|cffd2d2d2"};
-
-
-	for (int i=15; i>=0; i--)
+    char WoWcol[16][12] = { "|cffffffff", "|cff000000", "|cff00007f", "|cff009300", "|cffff0000", "|cff7f0000", "|cff9c009c", "|cfffc9300", "|cffffff00", "|cff00fc00", "|cff009393", "|cff00ffff", "|cff0000fc", "|cffff00ff", "|cff7f7f7f", "|cffd2d2d2"};
+    for (int i=15; i>=0; i--)
     {
         if (i<10)
         {
@@ -78,8 +80,8 @@ std::string IRCcol2WoW(std::string msg)
             }
         }
     }
-	
-	// Remove Bold, Reverse, Underline from IRC This one 
+
+    // Remove Bold, Reverse, Underline from IRC
 	char Checker[3][3] = {"\x2","\x16","\x1F"}; // This is the Hex part not Dec. In Decimal its (2,22,31)
 	for(int I=0; I < 3; I++)
 	{
@@ -89,32 +91,24 @@ std::string IRCcol2WoW(std::string msg)
       }
 
 	}
-    // Finished Removing
+    // Finished Removing !
 
     while ((pos = msg.find("\x3")) != std::string::npos)
     {
-		msg.replace(pos, 1, "|r");
+        msg.replace(pos, 1, "|r");
     }
     while ((pos = msg.find("\xF")) != std::string::npos)
     {
         msg.replace(pos, 1, "|r");
     }
 
-	// sLog.outString("%s",msg2);
-	return msg;
+    return msg;
 }
 
 std::string MakeLower(std::string Channel)
 {
     std::string tmpchan = Channel;
     std::transform(tmpchan.begin(), tmpchan.end(), tmpchan.begin(), towlower);
-    return tmpchan;
-}
-
-std::string MakeUpper(std::string Channel)
-{
-    std::string tmpchan = Channel;
-    std::transform(tmpchan.begin(), tmpchan.end(), tmpchan.begin(), towupper);
     return tmpchan;
 }
 

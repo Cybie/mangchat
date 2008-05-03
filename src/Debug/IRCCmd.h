@@ -23,7 +23,7 @@ struct _client
 };
 struct _CDATA
 {
-    std::string CMD;
+	std::string CMD;
     std::string USER;
     std::string FROM;
     std::string PARAMS;
@@ -65,7 +65,8 @@ class IRCCmd
         void    Online_Players(_CDATA *CD);
         int GetLevel(std::string sName);
 		int AcctLevel(std::string plnme);
-        // InGame Commands
+		std::string MakeUpper(std::string Channel);
+		// InGame Commands
         void    Account_Player(_CDATA *CD);
 		void    Fun_Player(_CDATA *CD);
         void    Help_IRC(_CDATA *CD);
