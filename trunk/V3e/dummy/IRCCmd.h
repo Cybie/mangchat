@@ -21,6 +21,10 @@ class IRCCmd
 		void OnKick();
 		void OnMode();
 		void OnQuit();
+
+		void OnRFC(){};
+
+		void OnNickTaken();
 	
 	private:
 		IRCMsg *msg;

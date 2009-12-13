@@ -8,23 +8,9 @@
 #endif	
 
 //#define MTN_STATIC
+//#define USE_MYSQL
 //#define HAVE_OPENSSL
 //#define USE_UTF8
-
-#ifdef HAVE_OPENSSL
-	#include <openssl/ssl.h>
-	#define OPEN_SSL
-#endif
-
-#ifdef USE_UTF8
-	#include <iconv.h>
-	#include <localcharset.h>
-	#include <libcharset.h>
-	#define _UNICODE
-	#ifdef _MBCS
-	#undef _MBCS
-	#endif
-#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -68,6 +54,21 @@
 
 #ifdef USE_MYSQL
 	#include <mysql.h>
+#endif
+
+#ifdef HAVE_OPENSSL
+	#include <openssl/ssl.h>
+	#define OPEN_SSL
+#endif
+
+#ifdef USE_UTF8
+	#include <iconv.h>
+	#include <localcharset.h>
+	#include <libcharset.h>
+	#define _UNICODE
+	#ifdef _MBCS
+	#undef _MBCS
+	#endif
 #endif
 
 #endif
