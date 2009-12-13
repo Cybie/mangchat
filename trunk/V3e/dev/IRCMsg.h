@@ -18,9 +18,8 @@ class IRCMsg
 {
 	public:
 		IRCMsg(void){ };
-		IRCMsg(IRCClient *_irc)
-			{ irc = _irc; };
-		~IRCMsg(void){};
+		IRCMsg(IRCClient *_irc);
+		~IRCMsg(void);
 
 	public:
 		ClientSocket *GetSession() { return irc->GetSocket(); };
@@ -36,6 +35,7 @@ class IRCMsg
 
 	public:
 		char *data;
+		char *ident;
 		char *nick;
 		char *user;
 		char *host;

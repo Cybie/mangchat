@@ -7,6 +7,8 @@
 struct IClient
 {
 	char *user;
+	char *host;
+	char *ident;
 	int level;
 };
 
@@ -27,19 +29,12 @@ class IRCClient
         void run();
 
 	public:
-		ClientSocket *GetSocket() { return &Sock; };
+		ClientSocket *GetSocket()
+			{ return &Sock; };
 		void AddUser(IClient *newclient)
-		{ UserList.push_back(newclient); };
+			{ UserList.push_back(newclient); };
 		
-		IClient *GetUser(char *username)
-		{
-			for(std::list<IClient *>::iterator i=UserList.begin(); i!=UserList.end();i++)
-			{
-				if(!strcmp(username, (*i)->user))
-					return (*i);
-			}			
-			return NULL;
-		};
+		IClient *GetUser(char *username);
 
     private:
         bool bActive;

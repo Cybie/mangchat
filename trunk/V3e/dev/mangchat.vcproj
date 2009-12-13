@@ -40,6 +40,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
+				AdditionalIncludeDirectories="include"
 				PreprocessorDefinitions="WIN32"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -111,6 +112,8 @@
 				Name="VCCLCompilerTool"
 				Optimization="2"
 				EnableIntrinsicFunctions="true"
+				AdditionalIncludeDirectories=""
+				PreprocessorDefinitions="WIN32"
 				RuntimeLibrary="2"
 				EnableFunctionLevelLinking="true"
 				WarningLevel="3"
@@ -127,6 +130,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="WS2_32.LIB"
 				GenerateDebugInformation="true"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
@@ -176,6 +180,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\IRCDcc.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\IRCIdent.cpp"
 				>
 			</File>
@@ -199,6 +207,10 @@
 			</File>
 			<File
 				RelativePath=".\IRCCmde.h"
+				>
+			</File>
+			<File
+				RelativePath=".\IRCDcc.h"
 				>
 			</File>
 			<File

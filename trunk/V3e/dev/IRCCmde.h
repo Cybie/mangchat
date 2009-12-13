@@ -12,7 +12,7 @@ class IRCCmde
 
 	public:
 		void DoHelp(char *param);
-		bool DoLogin(char *user, char *pass);
+		bool DoLogin(char *param);
 	
 	private:
 		IRCMsg *msg;
