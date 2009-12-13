@@ -21,7 +21,7 @@ struct IChannel
 
 };
 
-class IRCClient
+class IRCClient// : public ACE_BASED:Runable
 {
     public:
 		IRCClient(){};

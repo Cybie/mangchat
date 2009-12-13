@@ -4,8 +4,7 @@
 void IRCIdent::run()
 {
 	this->Sock = new ServerSocket(113);
-	do
-	{
+//	do {
 		ClientSocket *Client = this->Sock->_Accept();
 		char Buffer[BUFFER_SIZE];
 		memset(Buffer, 0, BUFFER_SIZE);
@@ -14,9 +13,9 @@ void IRCIdent::run()
 		std::string data(Buffer);
 		TrimCrLf(data);
 
-		data += " : USERID : UNIX : MC";
+		data += " : USERID : UNIX : MC3";
 		Client->Send(data);
 
 		delete Client;
-	} while(!this->IsStopped);
+//	} while(!this->IsStopped);
 }

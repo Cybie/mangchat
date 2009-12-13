@@ -3,7 +3,7 @@
 
 #include "ServerSocket.h"
 
-class IRCDcc
+class IRCDcc// : public ACE_BASED:Runable
 {
     public:
 		IRCDcc(){};

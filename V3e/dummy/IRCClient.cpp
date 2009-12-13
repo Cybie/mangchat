@@ -91,6 +91,36 @@ void IRCClient::Handle_IRC(char *line)
 
 		if(!strcmp(msg.cmd, "001"))
 			CMD.OnConnect();
+		else if(!strcmp(msg.cmd, "002"))
+			CMD.OnRFC(/*Host info*/);
+		else if(!strcmp(msg.cmd, "003"))
+			CMD.OnRFC(/*Server info*/);
+		else if(!strcmp(msg.cmd, "251"))
+			CMD.OnRFC(/*Online Users*/);
+		else if(!strcmp(msg.cmd, "252"))
+			CMD.OnRFC(/*Online Operators*/);
+		else if(!strcmp(msg.cmd, "252"))
+			CMD.OnRFC(/*Online Channels*/);
+		else if(!strcmp(msg.cmd, "255"))
+			CMD.OnRFC(/*Clients/Servers*/);
+		else if(!strcmp(msg.cmd, "265"))
+			CMD.OnRFC(/*Local Users*/);
+		else if(!strcmp(msg.cmd, "266"))
+			CMD.OnRFC(/*Global Users*/);
+		else if(!strcmp(msg.cmd, "332"))
+			CMD.OnRFC(/*Channel Topic*/);
+		else if(!strcmp(msg.cmd, "353"))
+			CMD.OnRFC(/*Channel Users start*/);
+		else if(!strcmp(msg.cmd, "366"))
+			CMD.OnRFC(/*Channel Users end*/);
+		else if(!strcmp(msg.cmd, "372"))
+			CMD.OnRFC(/*MOTD Start*/);
+		else if(!strcmp(msg.cmd, "367"))
+			CMD.OnRFC(/*MOTD End*/);
+		else if(!strcmp(msg.cmd, "433"))
+			CMD.OnNickTaken(); 
+		else if(!strcmp(msg.cmd, "439"))
+			CMD.OnRFC(/*Processing Connection*/);
 		else if(!strcmp(msg.cmd, "PRIVMSG"))
 			CMD.OnPrivMsg();
 		else if(!strcmp(msg.cmd, "NOTICE"))
@@ -107,6 +137,18 @@ void IRCClient::Handle_IRC(char *line)
 			CMD.OnMode();
 		else if(!strcmp(msg.cmd, "QUIT"))
 			CMD.OnQuit();
+		else if(!strcmp(msg.cmd, "SQUIT"))
+			CMD.OnQuit();
+		else if(!strcmp(msg.cmd, "USER"))
+			CMD.OnDefault();
+		else if(!strcmp(msg.cmd, "TOPIC"))
+			CMD.OnDefault();
+		else if(!strcmp(msg.cmd, "NAMES"))
+			CMD.OnDefault();
+		else if(!strcmp(msg.cmd, "INVITE"))
+			CMD.OnDefault();
+		else if(!strcmp(msg.cmd, "VERSION"))
+			CMD.OnDefault();
 		else
 			CMD.OnDefault();
 	}

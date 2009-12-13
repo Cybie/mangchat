@@ -53,7 +53,6 @@ void IRCMsg::Send_Channel(char *msg, char *chn, char *mtype)
 
 	char data[1024];
 	MakeMsgW(data, "%s %s :%s", mtype, chan, msg);
-	printf(data);
 	GetSession()->Send(data);
 }
 
