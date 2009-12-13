@@ -14,4 +14,6 @@ void MakeMsgW(char *src, const char *sLine, ... );
 
 char *Parse(char *src, char *delim = " ", bool bInit = false, char *bRest = NULL);
 
+bool ToUTF8(const char *chat);
+
 #endif
