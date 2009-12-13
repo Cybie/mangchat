@@ -8,11 +8,22 @@
 #endif	
 
 //#define MTN_STATIC
-#define HAVE_OPENSSL
+//#define HAVE_OPENSSL
+//#define USE_UTF8
 
 #ifdef HAVE_OPENSSL
 	#include <openssl/ssl.h>
 	#define OPEN_SSL
+#endif
+
+#ifdef USE_UTF8
+	#include <iconv.h>
+	#include <localcharset.h>
+	#include <libcharset.h>
+	#define _UNICODE
+	#ifdef _MBCS
+	#undef _MBCS
+	#endif
 #endif
 
 #include <stdio.h>
@@ -27,6 +38,10 @@
 	#ifdef HAVE_OPENSSL
 		#pragma comment(lib, "libeay32.lib")
 		#pragma comment(lib, "ssleay32.lib")		
+	#endif
+	#ifdef USE_UTF8
+		#pragma comment(lib, "iconv.lib")
+		#pragma comment(lib, "charset.lib")
 	#endif
 	#include <tchar.h>
     #include <winsock2.h>

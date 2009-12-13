@@ -142,3 +142,51 @@ char *Parse(char *src, char *delim, bool bInit, char *bRest)
 			return src;
 	}
 }
+
+#ifdef USE_UTF8
+bool ToUTF8(const char *chat)
+{
+    // extern void error();
+    iconv_t cd = iconv_open("char", "UTF-8");
+    if (cd != (iconv_t) -1)
+    {
+        size_t size_orig = strlen(chat);
+        size_t size_new = 2040;
+
+        char just_test[2048] = "";
+        char *chat_converted = just_test;
+
+        size_t size_converted = iconv(cd, &chat, &size_orig, &chat_converted, &size_new);
+        
+        if(size_converted != -1)
+                    chat = just_test;
+        else
+        {
+            int retval = errno;
+            iconv_close(cd);
+
+            switch(retval)
+            {
+            case EINVAL:
+                {
+                //Input conversion stopped due to an incomplete character or shift sequence at the end of the input buffer.
+                return false;
+                }
+            case EILSEQ:
+                {
+                //Input conversion stopped due to an input byte that does not belong to the input codeset
+                return false;
+                }
+            case E2BIG:
+                {
+                //Input conversion stopped due to lack of space in the output buffer. inbytesleft has the number of bytes to be converted.
+                return false;
+                }
+            }
+            }   
+        return true;
+    }
+    else
+        return false;
+}
+#endif
