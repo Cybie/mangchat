@@ -7,6 +7,6 @@ int main(int argc, char *argv[])
 	IRC irc;
 	irc.run();
 
-	while(!IRC::IsStopped){};
+	std::cin.get();
 	return 0;
 }

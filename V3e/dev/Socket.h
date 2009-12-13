@@ -2,6 +2,7 @@
 #define _SOCKET_H_
 
 #include "common.h"
+#include <openssl/ssl.h>
 
 #ifdef WIN32
   #include <winsock.h>
