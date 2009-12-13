@@ -1,0 +1,18 @@
+#summary MangChat Version 3.0 Extreme.
+#labels Featured,Phase-QA,Phase-Support
+
+= Introduction =
+
+MangChat 3.0 is a complete revamp of the last release of MangChat.
+
+The memory hogging std::string has been eliminated, everything now relies on memory operations.
+
+
+
+= Details =
+
+*Features*
+
+  * _Faster_
+  * _Easier_
+  * _Seperate Project_
